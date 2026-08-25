@@ -13,7 +13,7 @@ from scipy.stats import norm, linregress
 # 1. PAGE CONFIGURATION & ADVANCED CSS
 # ==============================================================================
 st.set_page_config(
-    page_title="Investment Terminal Pro",
+    page_title="Investment Terminal",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -28,70 +28,79 @@ def get_theme_css(theme):
     if theme == "Dark":
         return """
         :root {
-            --bg-color: #0e1117;
-            --card-bg: #1e2130;
-            --text-color: #fafafa;
-            --secondary-text: #b0b0b0;
-            --border-color: #303030;
-            --accent-color: #4da6ff;
-            --success-color: #00e676;
-            --danger-color: #ff5252;
-            --warning-color: #ffab40;
-            --box-insight-bg: #112924;
-            --box-insight-border: #004d40;
-            --box-insight-text: #80cbc4;
-            --box-warn-bg: #2b1111;
-            --box-warn-border: #4a1515;
-            --box-warn-text: #ef9a9a;
-            --box-info-bg: #101924;
-            --box-info-border: #0d2745;
-            --box-info-text: #90caf9;
+            --bg-color: #0a0e17;
+            --bg-gradient: radial-gradient(circle at 15% 0%, #141b2e 0%, #0a0e17 55%);
+            --card-bg: #131826;
+            --card-bg-alt: #171d2e;
+            --text-color: #f1f3f8;
+            --secondary-text: #93a0b8;
+            --border-color: #232a3d;
+            --accent-color: #818cf8;
+            --accent-soft: #a5b0f8;
+            --success-color: #34d399;
+            --danger-color: #f87171;
+            --warning-color: #fbbf24;
+            --box-insight-bg: #0f2a24;
+            --box-insight-border: #34d399;
+            --box-insight-text: #86efac;
+            --box-warn-bg: #2a1414;
+            --box-warn-border: #f87171;
+            --box-warn-text: #fca5a5;
+            --box-info-bg: #12192e;
+            --box-info-border: #818cf8;
+            --box-info-text: #c7d2fe;
         }
         """
     elif theme == "Sepia":
         return """
         :root {
-            --bg-color: #f4ecd8;
-            --card-bg: #fff9e6;
-            --text-color: #433422;
-            --secondary-text: #5b4636;
-            --border-color: #dcd0b0;
-            --accent-color: #8c6b5d;
-            --success-color: #388e3c;
-            --danger-color: #d32f2f;
-            --warning-color: #f57c00;
-            --box-insight-bg: #e8f5e9;
-            --box-insight-border: #c8e6c9;
-            --box-insight-text: #2e7d32;
-            --box-warn-bg: #ffebee;
-            --box-warn-border: #ffcdd2;
-            --box-warn-text: #c62828;
-            --box-info-bg: #e3f2fd;
-            --box-info-border: #bbdefb;
-            --box-info-text: #1565c0;
+            --bg-color: #f5efe0;
+            --bg-gradient: radial-gradient(circle at 15% 0%, #faf4e6 0%, #f5efe0 55%);
+            --card-bg: #fffaf0;
+            --card-bg-alt: #fbf3e2;
+            --text-color: #3a2f22;
+            --secondary-text: #7a6a52;
+            --border-color: #e3d5bb;
+            --accent-color: #a1633d;
+            --accent-soft: #c17f52;
+            --success-color: #3f8f5f;
+            --danger-color: #b6462f;
+            --warning-color: #c58a2e;
+            --box-insight-bg: #eef3e6;
+            --box-insight-border: #3f8f5f;
+            --box-insight-text: #2e6b45;
+            --box-warn-bg: #f8e9e3;
+            --box-warn-border: #b6462f;
+            --box-warn-text: #8f3721;
+            --box-info-bg: #f1e9db;
+            --box-info-border: #a1633d;
+            --box-info-text: #6b4527;
         }
         """
     else: # Light (Default)
         return """
         :root {
-            --bg-color: #f8f9fa;
+            --bg-color: #f5f6fa;
+            --bg-gradient: radial-gradient(circle at 15% 0%, #ffffff 0%, #f5f6fa 55%);
             --card-bg: #ffffff;
-            --text-color: #2c3e50;
-            --secondary-text: #7f8c8d;
-            --border-color: #e0e0e0;
-            --accent-color: #3498db;
-            --success-color: #27ae60;
-            --danger-color: #c0392b;
-            --warning-color: #f39c12;
-            --box-insight-bg: #e8f8f5;
-            --box-insight-border: #1abc9c;
-            --box-insight-text: #0e6251;
-            --box-warn-bg: #fdedec;
-            --box-warn-border: #e74c3c;
-            --box-warn-text: #78281f;
-            --box-info-bg: #ebf5fb;
-            --box-info-border: #3498db;
-            --box-info-text: #154360;
+            --card-bg-alt: #f9fafc;
+            --text-color: #16192b;
+            --secondary-text: #667085;
+            --border-color: #e6e8f0;
+            --accent-color: #4338ca;
+            --accent-soft: #6366f1;
+            --success-color: #0f9d63;
+            --danger-color: #d92d20;
+            --warning-color: #dc8b0f;
+            --box-insight-bg: #ecfdf3;
+            --box-insight-border: #0f9d63;
+            --box-insight-text: #0b6b45;
+            --box-warn-bg: #fef2f1;
+            --box-warn-border: #d92d20;
+            --box-warn-text: #93261a;
+            --box-info-bg: #eef1ff;
+            --box-info-border: #4338ca;
+            --box-info-text: #322a8c;
         }
         """
 
@@ -100,14 +109,29 @@ current_theme_css = get_theme_css(st.session_state.theme)
 st.markdown(f"""
 <style>
     /* IMPORT FONTS */
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
     
     {current_theme_css}
 
     html, body, [class*="css"] {{
-        font-family: 'Roboto', sans-serif;
+        font-family: 'Inter', -apple-system, sans-serif;
         color: var(--text-color);
-        background-color: var(--bg-color);
+        background: var(--bg-gradient);
+    }}
+
+    [data-testid="stAppViewContainer"] {{
+        background: var(--bg-gradient);
+    }}
+
+    h1, h2, h3, h4, h5, h6 {{
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--text-color);
+    }}
+
+    p, span, label, div {{
+        letter-spacing: 0.01em;
     }}
 
     /* SIDEBAR STYLING */
@@ -117,6 +141,29 @@ st.markdown(f"""
     }}
     [data-testid="stSidebar"] * {{
         color: var(--text-color) !important;
+    }}
+    [data-testid="stSidebar"] h1 {{
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }}
+    [data-testid="stSidebar"] hr {{
+        border-color: var(--border-color);
+        opacity: 0.6;
+    }}
+
+    /* PRIMARY BUTTON */
+    .stButton > button[kind="primary"] {{
+        background: linear-gradient(135deg, var(--accent-color), var(--accent-soft));
+        border: none;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        box-shadow: 0 4px 10px rgba(67, 56, 202, 0.25);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .stButton > button[kind="primary"]:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(67, 56, 202, 0.32);
     }}
 
     /* KPI CARD DESIGN */
@@ -128,42 +175,55 @@ st.markdown(f"""
     }}
     
     .kpi-card {{
+        position: relative;
         background-color: var(--card-bg);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        border-left: 4px solid var(--accent-color);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 12px;
+        padding: 18px 20px 16px 20px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
         color: var(--text-color);
+    }}
+
+    .kpi-card::before {{
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent-color), var(--accent-soft));
     }}
     
     .kpi-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(16, 24, 40, 0.08);
+        border-color: var(--accent-color);
     }}
     
     .kpi-label {{
-        font-size: 11px;
+        font-size: 10.5px;
         color: var(--secondary-text);
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.08em;
         font-weight: 600;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
     }}
     
     .kpi-value {{
-        font-size: 26px;
+        font-size: 25px;
         font-weight: 700;
         color: var(--text-color);
         font-family: 'IBM Plex Mono', monospace;
+        font-variant-numeric: tabular-nums;
     }}
     
     .kpi-delta {{
-        font-size: 13px;
+        font-size: 12.5px;
         font-weight: 600;
         display: flex;
         align-items: center;
-        margin-top: 5px;
+        gap: 4px;
+        margin-top: 6px;
     }}
     
     .kpi-delta.positive {{ color: var(--success-color); }}
@@ -171,12 +231,12 @@ st.markdown(f"""
 
     /* ANALYSIS BOXES */
     .analysis-box {{
-        padding: 20px;
-        border-radius: 8px;
+        padding: 18px 20px;
+        border-radius: 10px;
         margin: 15px 0;
         font-size: 14px;
-        line-height: 1.6;
-        border-left-width: 5px;
+        line-height: 1.65;
+        border-left-width: 4px;
         border-left-style: solid;
     }}
     
@@ -200,25 +260,27 @@ st.markdown(f"""
 
     /* TABS & DATAFRAMES */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 10px;
+        gap: 8px;
         background-color: transparent;
+        border-bottom: 1px solid var(--border-color);
     }}
     
     .stTabs [data-baseweb="tab"] {{
-        height: 50px;
+        height: 44px;
         white-space: pre-wrap;
-        background-color: var(--card-bg);
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
+        background-color: transparent;
+        border-radius: 8px 8px 0 0;
+        border: none;
         font-weight: 500;
-        padding: 0 20px;
-        color: var(--text-color);
+        padding: 0 18px;
+        color: var(--secondary-text);
     }}
     
     .stTabs [aria-selected="true"] {{
-        background-color: var(--accent-color);
-        color: #ffffff !important;
-        border: none;
+        background-color: var(--card-bg-alt);
+        color: var(--accent-color) !important;
+        font-weight: 700;
+        box-shadow: inset 0 -3px 0 var(--accent-color);
     }}
 
     .dataframe {{
@@ -237,8 +299,9 @@ st.markdown(f"""
         background-color: var(--card-bg);
         color: var(--secondary-text);
         text-align: center;
-        padding: 10px;
-        font-size: 12px;
+        padding: 9px;
+        font-size: 11.5px;
+        letter-spacing: 0.02em;
         border-top: 1px solid var(--border-color);
         z-index: 999;
     }}
@@ -247,10 +310,12 @@ st.markdown(f"""
     div[data-baseweb="select"] > div {{
         background-color: var(--card-bg);
         color: var(--text-color);
+        border-radius: 8px;
     }}
     div[data-baseweb="input"] > div {{
         background-color: var(--card-bg);
         color: var(--text-color);
+        border-radius: 8px;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -552,7 +617,7 @@ def render_interpretation(content, sentiment="neutral"):
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/bullish.png", width=60)
     st.title("INVESTMENT TERMINAL")
-    st.caption("Pro Edition | Analysis Suite")
+    st.caption("Fundamental Research & Valuation")
     st.markdown("---")
     
     # THEME SELECTION
@@ -681,11 +746,11 @@ with c3:
     pct = (chg / prev) * 100 if prev else 0
     disp_price = price * fx_rate
     disp_chg = chg * fx_rate
-    color = "#27ae60" if chg >= 0 else "#c0392b"
+    color = "var(--success-color)" if chg >= 0 else "var(--danger-color)"
     st.markdown(f"""
-    <div style='text-align: right; background: var(--card-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);'>
-        <div style='font-size: 32px; font-weight: 800; color: {color};'>{target_symbol}{disp_price:,.2f}</div>
-        <div style='font-size: 16px; font-weight: 600; color: {color};'>{disp_chg:+.2f} ({pct:+.2f}%)</div>
+    <div style='text-align: right; background: var(--card-bg); padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 1px 2px rgba(16,24,40,0.04);'>
+        <div style='font-size: 32px; font-weight: 800; font-family: "IBM Plex Mono", monospace; color: {color};'>{target_symbol}{disp_price:,.2f}</div>
+        <div style='font-size: 15px; font-weight: 600; color: {color};'>{disp_chg:+.2f} ({pct:+.2f}%)</div>
     </div>
     """, unsafe_allow_html=True)
 st.markdown("---")
@@ -2064,7 +2129,7 @@ elif module == "9. Market Leaders Ranking":
 # --- FOOTER ---
 st.markdown("""
 <div class="footer">
-    Investment Terminal Pro | Developed by <b>Minh Phu Dinh</b> | Data Source: Yahoo Finance<br>
+    Investment Terminal | Developed by <b>Minh Phu Dinh</b> | Data Source: Yahoo Finance<br>
     Disclaimer: Not financial advice. Educational purposes only.
 </div>
 """, unsafe_allow_html=True)
