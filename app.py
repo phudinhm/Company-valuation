@@ -53,7 +53,10 @@ st.set_page_config(
     page_title=APP_NAME,
     page_icon=None,
     layout="wide",
-    initial_sidebar_state="expanded",
+    # "auto" keeps the sidebar open on a desktop but collapses it on a phone,
+    # where "expanded" would land the reader on the controls rather than on the
+    # report they asked for.
+    initial_sidebar_state="auto",
 )
 
 # A single source of truth for colour: the same dictionary drives the CSS
@@ -63,7 +66,7 @@ THEMES = {
     "Light": {
         "bg": "#f4f5f9", "bg_grad": "radial-gradient(circle at 12% -10%, #ffffff 0%, #f4f5f9 60%)",
         "surface": "#ffffff", "surface_alt": "#f8f9fc", "surface_sunk": "#eef0f6",
-        "text": "#14172a", "muted": "#5f6980", "faint": "#8b93a7",
+        "text": "#14172a", "muted": "#515c73", "faint": "#6f7a90",
         "border": "#e4e7f0", "accent": "#3d3ab0", "accent_soft": "#6366f1",
         "success": "#0f8f5c", "danger": "#cf2c1e", "warning": "#b8760a", "info": "#2563eb",
         "pos_bg": "#ecfdf3", "pos_text": "#0a5f3d",
@@ -75,7 +78,7 @@ THEMES = {
     "Dark": {
         "bg": "#080b13", "bg_grad": "radial-gradient(circle at 12% -10%, #151c30 0%, #080b13 60%)",
         "surface": "#111726", "surface_alt": "#161d2e", "surface_sunk": "#0d121e",
-        "text": "#eef1f8", "muted": "#94a1b8", "faint": "#6c7893",
+        "text": "#eef1f8", "muted": "#a3b0c6", "faint": "#8590a6",
         "border": "#222a3d", "accent": "#8b93f8", "accent_soft": "#a5adfb",
         "success": "#34d399", "danger": "#f87171", "warning": "#fbbf24", "info": "#60a5fa",
         "pos_bg": "#0d2a22", "pos_text": "#7ee2b8",
@@ -87,7 +90,7 @@ THEMES = {
     "Sepia": {
         "bg": "#f4eee0", "bg_grad": "radial-gradient(circle at 12% -10%, #fbf6ea 0%, #f4eee0 60%)",
         "surface": "#fffaf0", "surface_alt": "#faf3e4", "surface_sunk": "#efe6d3",
-        "text": "#382e21", "muted": "#77674f", "faint": "#9a8a70",
+        "text": "#382e21", "muted": "#6b5c45", "faint": "#8b7c63",
         "border": "#e2d4ba", "accent": "#8f5730", "accent_soft": "#b57a4a",
         "success": "#3d8a5c", "danger": "#b0432d", "warning": "#b4801f", "info": "#3f6f9c",
         "pos_bg": "#edf3e5", "pos_text": "#2c6742",
@@ -98,31 +101,21 @@ THEMES = {
     },
 }
 
-DENSITY = {
-    "Comfortable": {"card_pad": "18px 20px", "kpi_pad": "16px 18px", "gap": "14px",
-                    "kpi_value": "24px", "block_top": "2.4rem", "sec_top": "30px"},
-    "Compact": {"card_pad": "12px 14px", "kpi_pad": "11px 13px", "gap": "9px",
-                "kpi_value": "21px", "block_top": "1.4rem", "sec_top": "20px"},
-}
-
 DEFAULTS = {
     "theme": "Light",
-    "density": "Comfortable",
-    "module": "1. Executive Dashboard",
+    "module": "01. Executive Dashboard",
     "market_select": "United States",
     "ticker_symbol_input": "AAPL",
     "explain_open": False,
-    "build_report": False,
     "_export": False,
 }
 for _k, _v in DEFAULTS.items():
     st.session_state.setdefault(_k, _v)
 
 T = THEMES[st.session_state.theme]
-D = DENSITY[st.session_state.density]
 
 
-def _tokens_css(t: dict, d: dict) -> str:
+def _tokens_css(t: dict) -> str:
     pairs = {
         "--bg": t["bg"], "--bg-grad": t["bg_grad"], "--surface": t["surface"],
         "--surface-alt": t["surface_alt"], "--surface-sunk": t["surface_sunk"],
@@ -132,9 +125,7 @@ def _tokens_css(t: dict, d: dict) -> str:
         "--info": t["info"], "--pos-bg": t["pos_bg"], "--pos-text": t["pos_text"],
         "--neg-bg": t["neg_bg"], "--neg-text": t["neg_text"], "--warn-bg": t["warn_bg"],
         "--warn-text": t["warn_text"], "--neu-bg": t["neu_bg"], "--neu-text": t["neu_text"],
-        "--shadow": t["shadow"], "--card-pad": d["card_pad"], "--kpi-pad": d["kpi_pad"],
-        "--gap": d["gap"], "--kpi-value": d["kpi_value"], "--block-top": d["block_top"],
-        "--sec-top": d["sec_top"],
+        "--shadow": t["shadow"],
     }
     return ":root{" + "".join(f"{k}:{v};" for k, v in pairs.items()) + "}"
 
@@ -147,48 +138,62 @@ _STYLESHEET = """
 
 /*TOKENS*/
 
+:root{
+  --card-pad: 20px 22px;
+  --kpi-pad: 17px 19px;
+  --gap: 14px;
+  --fs-body: 15px;
+  --fs-kpi: 27px;
+  --fs-note: 14.5px;
+  --fs-cap: 13.5px;
+  --sec-top: 34px;
+}
+
 html, body, [class*="css"] { font-family: 'Inter', -apple-system, "Segoe UI", sans-serif; color: var(--text); }
 [data-testid="stAppViewContainer"] { background: var(--bg-grad); }
-.block-container { padding-top: var(--block-top); padding-bottom: 4.5rem; max-width: 1560px; }
+[data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] li,
+[data-testid="stAppViewContainer"] label, [data-testid="stMarkdownContainer"] p { font-size: var(--fs-body); }
+.block-container { padding-top: 2.2rem; padding-bottom: 4.5rem; max-width: 1560px; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.015em; color: var(--text); }
 a { color: var(--accent); }
 hr { border-color: var(--border); }
+[data-testid="stCaptionContainer"] p, .stCaption p { font-size: 13px !important; color: var(--muted) !important; }
 
 /* ---------- Sidebar ---------- */
 [data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid var(--border); }
 [data-testid="stSidebar"] * { color: var(--text); }
-[data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] small { color: var(--muted) !important; }
-.side-brand { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-.side-sub { font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 3px; }
-.side-group { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-              color: var(--faint); margin: 16px 0 2px; }
+[data-testid="stSidebar"] label { font-size: 13.5px !important; font-weight: 500; }
+.side-brand { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.side-sub { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 4px; }
+.side-group { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+              color: var(--faint); margin: 18px 0 2px; }
 
 /* ---------- Buttons & inputs ---------- */
 .stButton > button[kind="primary"] { background: linear-gradient(135deg, var(--accent), var(--accent-soft));
-    border: none; font-weight: 600; letter-spacing: .01em; }
-.stButton > button { border-radius: 8px; }
+    border: none; font-weight: 600; }
+.stButton > button { border-radius: 8px; font-size: 14px; }
 div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
-    background: var(--surface); color: var(--text); border-radius: 8px; }
+    background: var(--surface); color: var(--text); border-radius: 8px; font-size: 14px; }
 
 /* ---------- Section headers ---------- */
-.section { display: flex; align-items: baseline; gap: 12px; margin: var(--sec-top) 0 4px; }
-.section-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;
-    color: var(--accent); background: var(--neu-bg); border-radius: 5px; padding: 2px 7px; letter-spacing: .04em; }
-.section-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
-.section-rule { height: 1px; background: var(--border); flex: 1; margin-bottom: 3px; }
-.section-sub { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; line-height: 1.55; }
-.eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.section { display: flex; align-items: baseline; gap: 12px; margin: var(--sec-top) 0 5px; }
+.section-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
+    color: var(--accent); background: var(--neu-bg); border-radius: 5px; padding: 3px 8px; letter-spacing: .04em; }
+.section-title { font-size: 19.5px; font-weight: 700; letter-spacing: -0.015em; }
+.section-rule { height: 1px; background: var(--border); flex: 1; margin-bottom: 4px; }
+.section-sub { font-size: 14px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 105ch; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
 
 /* ---------- Cards ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: var(--card-pad); box-shadow: 0 1px 2px var(--shadow); }
 .card + .card { margin-top: var(--gap); }
-.card-title { font-size: 13.5px; font-weight: 700; margin: 0 0 6px; }
-.card-body { font-size: 13px; line-height: 1.6; color: var(--text); }
-.card-meta { font-size: 12px; color: var(--muted); }
+.card-title { font-size: 15px; font-weight: 700; margin: 0 0 7px; }
+.card-body { font-size: 14.5px; line-height: 1.65; color: var(--text); }
+.card-meta { font-size: 13px; color: var(--muted); }
 
 /* ---------- KPI grid ---------- */
-.kpi-grid { display: grid; gap: var(--gap); margin-bottom: 6px; }
+.kpi-grid { display: grid; gap: var(--gap); margin-bottom: 8px; }
 .kpi { position: relative; background: var(--surface); border: 1px solid var(--border);
     border-radius: 11px; padding: var(--kpi-pad); overflow: hidden;
     transition: border-color .16s ease, transform .16s ease; }
@@ -198,96 +203,128 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
 .kpi.bad::before { background: var(--danger); }
 .kpi.warn::before { background: var(--warning); }
 .kpi.flat::before { background: var(--accent); }
-.kpi-label { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+.kpi-label { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .kpi-value { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
-    font-size: var(--kpi-value); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
-.kpi-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
-.kpi-delta { font-size: 12px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    font-size: var(--fs-kpi); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
+.kpi-sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+.kpi-delta { font-size: 13px; font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; }
 .kpi-delta.pos { color: var(--success); } .kpi-delta.neg { color: var(--danger); }
-.help-dot { display: inline-block; width: 13px; height: 13px; line-height: 13px; text-align: center;
-    border-radius: 50%; background: var(--surface-sunk); color: var(--faint); font-size: 9px;
+.help-dot { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center;
+    border-radius: 50%; background: var(--surface-sunk); color: var(--faint); font-size: 10px;
     font-weight: 700; cursor: help; }
 
 /* ---------- Notes / interpretation ---------- */
 .note { border: 1px solid var(--border); border-left-width: 3px; border-radius: 9px;
-    padding: 13px 15px; margin: 10px 0 4px; font-size: 13px; line-height: 1.62; }
-.note-title { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-    margin-bottom: 6px; opacity: .85; }
-.note p { margin: 0 0 7px; } .note ul { margin: 5px 0 6px 18px; padding: 0; } .note li { margin-bottom: 4px; }
+    padding: 15px 17px; margin: 12px 0 4px; font-size: var(--fs-note); line-height: 1.68; }
+.note-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 7px; opacity: .85; }
+.note p { margin: 0 0 8px; } .note ul { margin: 6px 0 7px 19px; padding: 0; } .note li { margin-bottom: 6px; }
 .note.pos { background: var(--pos-bg); color: var(--pos-text); border-left-color: var(--success); }
 .note.neg { background: var(--neg-bg); color: var(--neg-text); border-left-color: var(--danger); }
 .note.warn { background: var(--warn-bg); color: var(--warn-text); border-left-color: var(--warning); }
 .note.neu { background: var(--neu-bg); color: var(--neu-text); border-left-color: var(--accent); }
 
 /* ---------- Figure captions ---------- */
-.figcap { border-top: 1px solid var(--border); padding-top: 7px; margin-top: -6px; margin-bottom: 2px; }
-.figcap-line { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
-.figcap-num { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600;
+.figcap { border-top: 1px solid var(--border); padding-top: 8px; margin: -4px 0 2px; }
+.figcap-line { font-size: var(--fs-cap); color: var(--muted); line-height: 1.6; }
+.figcap-num { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600;
     color: var(--accent); margin-right: 7px; }
 .figcap-title { color: var(--text); font-weight: 600; }
-.exp-block { font-size: 12.8px; line-height: 1.62; color: var(--text); }
-.exp-block b { color: var(--text); }
-.exp-row { display: grid; grid-template-columns: 92px 1fr; gap: 10px; margin-bottom: 7px; }
-.exp-key { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--faint); padding-top: 2px; }
+.exp-block { font-size: 13.8px; line-height: 1.68; color: var(--text); }
+.exp-row { display: grid; grid-template-columns: 104px 1fr; gap: 12px; margin-bottom: 9px; }
+.exp-key { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--faint); padding-top: 3px; }
 
 /* ---------- Header ---------- */
-.hdr-name { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
-.hdr-meta { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
-.hdr-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 5px;
-    background: var(--surface-sunk); color: var(--muted); margin-right: 6px; letter-spacing: .02em; }
+.hdr-name { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
+.hdr-meta { font-size: 13.5px; color: var(--muted); margin-top: 7px; }
+.hdr-chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 5px;
+    background: var(--surface-sunk); color: var(--muted); margin: 0 6px 4px 0; }
 .px-box { text-align: right; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 12px 16px; }
-.px-value { font-family: 'IBM Plex Mono', monospace; font-size: 29px; font-weight: 700; letter-spacing: -0.02em; }
-.px-chg { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.px-meta { font-size: 11px; color: var(--faint); margin-top: 4px; }
+    border-radius: 12px; padding: 14px 18px; }
+.px-value { font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+.px-chg { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.px-meta { font-size: 12px; color: var(--faint); margin-top: 5px; }
+.monogram { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; font-weight: 800; font-size: 17px; }
 
 /* ---------- 52-week range bar ---------- */
-.rng { margin-top: 9px; }
-.rng-track { position: relative; height: 5px; border-radius: 3px; background: var(--surface-sunk); }
+.rng { margin-top: 10px; }
+.rng-track { position: relative; height: 6px; border-radius: 3px; background: var(--surface-sunk); }
 .rng-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px;
     background: linear-gradient(90deg, var(--accent-soft), var(--accent)); }
-.rng-mark { position: absolute; top: -3px; width: 2px; height: 11px; background: var(--text); border-radius: 1px; }
-.rng-labels { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); margin-top: 4px;
+.rng-mark { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--text); border-radius: 1px; }
+.rng-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--faint); margin-top: 5px;
     font-family: 'IBM Plex Mono', monospace; }
 
 /* ---------- Score bars ---------- */
-.score-row { display: grid; grid-template-columns: 132px 1fr 46px; gap: 10px; align-items: center; margin-bottom: 8px; }
-.score-name { font-size: 12px; color: var(--muted); font-weight: 500; }
-.score-track { height: 7px; border-radius: 4px; background: var(--surface-sunk); overflow: hidden; }
+.score-row { display: grid; grid-template-columns: 150px 1fr 50px; gap: 12px; align-items: center; margin-bottom: 9px; }
+.score-name { font-size: 13px; color: var(--muted); font-weight: 500; }
+.score-track { height: 8px; border-radius: 4px; background: var(--surface-sunk); overflow: hidden; }
 .score-fill { height: 100%; border-radius: 4px; }
-.score-val { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; text-align: right; }
-.verdict { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.verdict-score { font-family: 'IBM Plex Mono', monospace; font-size: 42px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
-.verdict-band { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
-.verdict-text { font-size: 12.8px; color: var(--muted); line-height: 1.55; flex: 1; min-width: 240px; }
+.score-val { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; text-align: right; }
+.verdict { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.verdict-score { font-family: 'IBM Plex Mono', monospace; font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+.verdict-band { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.verdict-text { font-size: 13.8px; color: var(--muted); line-height: 1.6; flex: 1; min-width: 240px; }
 
 /* ---------- Checklist ---------- */
-.chk { display: grid; grid-template-columns: 20px 1fr; gap: 9px; align-items: start; margin-bottom: 9px; font-size: 12.8px; line-height: 1.5; }
-.chk-mark { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 13px; text-align: center; }
+.chk { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; margin-bottom: 10px;
+    font-size: 13.8px; line-height: 1.55; }
+.chk-mark { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; text-align: center; }
 .chk-pass { color: var(--success); } .chk-fail { color: var(--danger); } .chk-warn { color: var(--warning); } .chk-na { color: var(--faint); }
 .chk-label { font-weight: 600; } .chk-detail { color: var(--muted); }
 
+/* ---------- Definition blocks (line-item deep dive) ---------- */
+.defn { border-left: 3px solid var(--accent); background: var(--surface); border: 1px solid var(--border);
+    border-left-width: 3px; border-radius: 9px; padding: 14px 16px; margin-bottom: 10px; }
+.defn-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.defn-name { font-size: 15px; font-weight: 700; }
+.defn-val { font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: var(--accent); }
+.defn-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; margin-top: 9px;
+    font-size: 13.8px; line-height: 1.6; }
+.defn-k { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--faint); padding-top: 3px; }
+
 /* ---------- Tabs & tables ---------- */
-.stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--border); }
-.stTabs [data-baseweb="tab"] { height: 38px; background: transparent; border: none; font-size: 13px;
-    font-weight: 500; padding: 0 14px; color: var(--muted); border-radius: 7px 7px 0 0; }
+.stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--border);
+    overflow-x: auto; scrollbar-width: thin; }
+.stTabs [data-baseweb="tab"] { height: 42px; background: transparent; border: none; font-size: 14.5px;
+    font-weight: 500; padding: 0 15px; color: var(--muted); border-radius: 7px 7px 0 0; white-space: nowrap; }
 .stTabs [aria-selected="true"] { color: var(--accent) !important; font-weight: 700;
     background: var(--surface-alt); box-shadow: inset 0 -2px 0 var(--accent); }
-[data-testid="stDataFrame"] { font-variant-numeric: tabular-nums; }
-[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; font-size: 21px; }
-[data-testid="stMetricLabel"] { font-size: 12px; color: var(--muted); }
+[data-testid="stDataFrame"] { font-variant-numeric: tabular-nums; font-size: 13.5px; }
+[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; font-size: 23px; }
+[data-testid="stMetricLabel"] { font-size: 13px; color: var(--muted); }
+[data-testid="stExpander"] summary p { font-size: 14px !important; font-weight: 500; }
 
 /* ---------- News list ---------- */
-.news { border-bottom: 1px solid var(--border); padding: 8px 0; }
+.news { border-bottom: 1px solid var(--border); padding: 10px 0; }
 .news:last-child { border-bottom: none; }
-.news-t { font-size: 13px; line-height: 1.45; font-weight: 500; }
-.news-m { font-size: 11px; color: var(--faint); margin-top: 3px; }
+.news-t { font-size: 14.5px; line-height: 1.5; font-weight: 500; }
+.news-m { font-size: 12px; color: var(--faint); margin-top: 4px; }
 
 /* ---------- Footer ---------- */
-.foot { border-top: 1px solid var(--border); margin-top: 34px; padding: 14px 0 6px;
-    font-size: 11.5px; color: var(--faint); line-height: 1.65; }
+.foot { border-top: 1px solid var(--border); margin-top: 36px; padding: 16px 0 6px;
+    font-size: 12.5px; color: var(--faint); line-height: 1.7; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 780px) {
+  :root { --card-pad: 15px 16px; --kpi-pad: 13px 15px; --gap: 10px; --fs-kpi: 23px;
+          --fs-body: 14.5px; --fs-note: 14px; --sec-top: 26px; }
+  .block-container { padding-left: .8rem; padding-right: .8rem; padding-top: 1.2rem; }
+  .hdr-name { font-size: 23px; }
+  .px-box { text-align: left; margin-top: 12px; }
+  .px-value { font-size: 27px; }
+  .section-title { font-size: 17.5px; }
+  .score-row { grid-template-columns: 118px 1fr 40px; gap: 9px; }
+  .exp-row, .defn-row { grid-template-columns: 1fr; gap: 3px; }
+  .verdict-score { font-size: 38px; }
+  .stTabs [data-baseweb="tab"] { font-size: 13.5px; padding: 0 11px; height: 38px; }
+  .monogram { display: none; }
+  .hdr-chip { font-size: 11.5px; }
+}
 
 /* ---------- Print ---------- */
 @media print {
@@ -298,7 +335,7 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
 </style>
 """
 
-st.markdown(_STYLESHEET.replace("/*TOKENS*/", _tokens_css(T, D)), unsafe_allow_html=True)
+st.markdown(_STYLESHEET.replace("/*TOKENS*/", _tokens_css(T)), unsafe_allow_html=True)
 
 # Plotly styling derived from the same tokens.
 PLOT_SEQ = [T["accent_soft"], T["success"], T["warning"], T["info"], T["danger"], T["faint"]]
@@ -306,29 +343,34 @@ PLOTLY_TEMPLATE = "plotly_dark" if st.session_state.theme == "Dark" else "plotly
 
 
 def style_fig(fig, height=None, legend="top", margin=None):
-    """Applies the app's typographic + colour system to any Plotly figure."""
+    """Applies the app's typographic and colour system to any Plotly figure.
+
+    Note on the title: it is cleared with an empty string, not None. Passing
+    None leaves an empty title *object* behind, which Plotly.js renders as the
+    literal text "undefined" above the chart.
+    """
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
-        font=dict(family="Inter, sans-serif", size=12, color=T["text"]),
+        font=dict(family="Inter, sans-serif", size=13, color=T["text"]),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         colorway=PLOT_SEQ,
-        margin=margin or dict(l=8, r=8, t=26, b=8),
-        hoverlabel=dict(font_family="IBM Plex Mono, monospace", font_size=12,
+        margin=margin or dict(l=8, r=8, t=30, b=8),
+        hoverlabel=dict(font_family="IBM Plex Mono, monospace", font_size=13,
                         bgcolor=T["surface"], bordercolor=T["border"]),
-        title=None,
+        title_text="",
     )
     if height:
         fig.update_layout(height=height)
     if legend == "top":
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.01,
-                                      xanchor="left", x=0, font=dict(size=11.5)))
+                                      xanchor="left", x=0, font=dict(size=12.5)))
     elif legend == "off":
         fig.update_layout(showlegend=False)
     fig.update_xaxes(gridcolor=T["grid"], zerolinecolor=T["grid"], linecolor=T["border"],
-                     tickfont=dict(size=11, color=T["muted"]), title_font=dict(size=11.5, color=T["muted"]))
+                     tickfont=dict(size=12, color=T["muted"]), title_font=dict(size=12.5, color=T["muted"]))
     fig.update_yaxes(gridcolor=T["grid"], zerolinecolor=T["grid"], linecolor=T["border"],
-                     tickfont=dict(size=11, color=T["muted"]), title_font=dict(size=11.5, color=T["muted"]))
+                     tickfont=dict(size=12, color=T["muted"]), title_font=dict(size=12.5, color=T["muted"]))
     return fig
 
 
@@ -419,12 +461,52 @@ def pick(info: dict, *keys, default=None):
     return default
 
 
-def yield_as_fraction(v):
-    """yfinance has reported dividendYield both as a fraction (0.0044) and as a
-    percentage (0.44) across versions. Anything above 1 is treated as percent."""
-    if not _isnum(v):
-        return None
-    return v / 100.0 if v > 1 else v
+def dividend_yield(info: dict, price):
+    """Dividend yield as a fraction.
+
+    `dividendYield` alone is unreliable: yfinance has reported it as a fraction
+    (0.0044) in some versions and as a percentage (0.44) in others, and the two
+    are indistinguishable from the number alone. Deriving it from the annual
+    dividend per share and the price is unambiguous, so that is tried first;
+    the reported fields are only fallbacks, cross-checked against the payout
+    ratio and capped at a level no ordinary equity exceeds."""
+    rate = pick(info, "dividendRate", "trailingAnnualDividendRate")
+    derived = safe_div(rate, price)
+    if derived is not None and 0 <= derived < 0.25:
+        return derived
+    # No equity yields more than about 25% for long, so a "fraction" above that
+    # is really a percentage that has not been scaled.
+    for key in ("trailingAnnualDividendYield", "dividendYield", "yield"):
+        v = info.get(key)
+        if not _isnum(v) or v <= 0:
+            continue
+        candidate = v / 100.0 if v > 0.25 else v
+        if candidate < 0.25:
+            return candidate
+    return None
+
+
+def dividend_facts(info: dict, price):
+    """Everything the dividend panel needs, with epoch timestamps resolved."""
+    def as_date(key):
+        v = info.get(key)
+        if not _isnum(v):
+            return None
+        try:
+            return datetime.fromtimestamp(v)
+        except (ValueError, OSError, OverflowError):
+            return None
+
+    five_yr = info.get("fiveYearAvgDividendYield")  # reported in percent
+    return {
+        "yield": dividend_yield(info, price),
+        "rate": pick(info, "dividendRate", "trailingAnnualDividendRate"),
+        "ex_date": as_date("exDividendDate"),
+        "pay_date": as_date("dividendDate"),
+        "payout": info.get("payoutRatio"),
+        "five_year_avg": (five_yr / 100.0) if _isnum(five_yr) else None,
+        "last_split": info.get("lastSplitFactor"),
+    }
 
 
 def de_as_ratio(v):
@@ -913,6 +995,242 @@ def load_leaderboard(tickers: tuple, target_currency: str, as_of: str) -> pd.Dat
     return df.sort_values("Market Cap", ascending=False).reset_index(drop=True) if not df.empty else df
 
 
+# --- Industry benchmarks -----------------------------------------------------
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_industry_commonsize(tickers: tuple) -> dict:
+    """Median common-size statements across a peer group.
+
+    Each peer's latest income statement is expressed as a percentage of its own
+    revenue and each balance sheet as a percentage of its own total assets, then
+    the median is taken line by line. That makes the comparison scale-free, so a
+    company can be read against its industry rather than against an absolute
+    number that means nothing on its own."""
+    if not tickers:
+        return {"income": pd.Series(dtype="float64"), "balance": pd.Series(dtype="float64"), "n": 0}
+
+    def fetch(t):
+        try:
+            tk = yf.Ticker(t)
+            return _norm_stmt(tk.income_stmt), _norm_stmt(tk.balance_sheet)
+        except Exception:
+            return pd.DataFrame(), pd.DataFrame()
+
+    inc_rows, bs_rows = [], []
+    for inc, bs in parallel_map(fetch, tickers):
+        if not inc.empty and "Total Revenue" in inc.columns:
+            row = inc.iloc[-1]
+            rev = row.get("Total Revenue")
+            if _isnum(rev) and rev > 0:
+                inc_rows.append(row / rev * 100)
+        if not bs.empty and "Total Assets" in bs.columns:
+            row = bs.iloc[-1]
+            ta = row.get("Total Assets")
+            if _isnum(ta) and ta > 0:
+                bs_rows.append(row / ta * 100)
+    return {
+        "income": pd.DataFrame(inc_rows).median() if inc_rows else pd.Series(dtype="float64"),
+        "balance": pd.DataFrame(bs_rows).median() if bs_rows else pd.Series(dtype="float64"),
+        "n": max(len(inc_rows), len(bs_rows)),
+    }
+
+
+# What each reported line actually means, what moves it, and what to watch.
+# Keyed on the data source's own line-item names so the guide can be attached
+# automatically to whatever the company happens to report.
+LINE_ITEMS = {
+    "Total Revenue": {
+        "what": "Money billed to customers for goods and services over the period, after returns, discounts and rebates. It is the top line every other figure is measured against.",
+        "drivers": "Volume sold, price per unit, product mix, currency translation on foreign sales, and — where relevant — how much of a long contract the accountants judge to have been delivered.",
+        "watch": "Growth that comes only from price rises is more fragile than growth from volume. Revenue rising while receivables rise faster (section 1's quality flags) can mean sales are being pulled forward on looser credit terms."},
+    "Cost Of Revenue": {
+        "what": "The direct cost of producing what was sold: materials, manufacturing labour, freight in, and the depreciation of production equipment. Costs that would disappear if the product were not made.",
+        "drivers": "Input and commodity prices, factory utilisation, wage rates, logistics costs, and manufacturing yield.",
+        "watch": "Rising faster than revenue means gross margin is compressing — either inputs cost more or pricing power has weakened. Which one it is decides whether it reverses."},
+    "Gross Profit": {
+        "what": "Revenue less the direct cost of delivering it. What is left to cover everything else: research, selling, administration, interest and tax.",
+        "drivers": "Pricing power, product mix, and manufacturing or delivery efficiency.",
+        "watch": "Gross margin is the most durable indicator of competitive position. It moves slowly, so a sustained shift in either direction is usually structural rather than noise."},
+    "Operating Expense": {
+        "what": "The cost of running the business rather than making the product: research, sales and marketing, and general administration.",
+        "drivers": "Headcount, marketing intensity, R&D commitment, and how much of the cost base is fixed.",
+        "watch": "Growing more slowly than revenue is operating leverage and lifts margins. Growing faster is either investment for future growth or loss of cost discipline — the following years tell you which."},
+    "Research And Development": {
+        "what": "Spending on developing new products and improving existing ones, expensed as incurred rather than capitalised.",
+        "drivers": "Engineering headcount, project pipeline, and how fast the industry's technology moves.",
+        "watch": "Cutting R&D flatters this year's margin at the expense of the products that would have shipped in three years. Judge it as a percentage of revenue over time, not in absolute terms."},
+    "Selling General And Administration": {
+        "what": "Salaries and costs of the sales force, marketing programmes, finance, legal, HR and executive functions.",
+        "drivers": "Sales headcount and commission, advertising commitments, and the fixed overhead of running a listed company.",
+        "watch": "For consumer businesses this is largely discretionary marketing, so it is the first lever pulled when a quarter looks weak — and the reason a margin beat is not always good news."},
+    "Operating Income": {
+        "what": "Profit from the core business before financing costs and tax. The cleanest measure of whether the operation itself makes money.",
+        "drivers": "Everything above it: revenue, direct costs and overheads.",
+        "watch": "This is the figure to compare across companies, because it is unaffected by how each one chooses to finance itself."},
+    "EBITDA": {
+        "what": "Operating profit before depreciation and amortisation are subtracted — a rough proxy for cash operating earnings.",
+        "drivers": "The same operating factors, with non-cash charges added back.",
+        "watch": "It flatters capital-intensive businesses by ignoring the cost of the assets they must keep replacing. Always read it beside capital expenditure."},
+    "Interest Expense": {
+        "what": "The cost of borrowed money over the period.",
+        "drivers": "Debt outstanding, the fixed-versus-floating mix, and prevailing rates when debt is refinanced.",
+        "watch": "Compare against operating profit for interest cover. A company refinancing low-rate debt into a higher-rate market sees this line step up years before the debt itself changes."},
+    "Pretax Income": {
+        "what": "Profit after operating costs and financing but before tax.",
+        "drivers": "Operating income, net interest, and one-off gains or losses.",
+        "watch": "A large gap between operating income and pre-tax income means non-operating items are doing meaningful work — worth identifying before treating the result as repeatable."},
+    "Tax Provision": {
+        "what": "The tax charged against this period's profit, which is an accounting estimate rather than cash paid to a tax authority.",
+        "drivers": "Statutory rates in each country of operation, profit mix by geography, and one-off settlements or credits.",
+        "watch": "An unusually low effective rate in one year often reverses. The DCF in section 5 clamps the derived rate to a sensible band for exactly this reason."},
+    "Net Income": {
+        "what": "The bottom line: profit attributable to shareholders after every cost, including tax.",
+        "drivers": "Everything above, plus one-off items that may not repeat.",
+        "watch": "The most managed number in the statements. Section 4 checks it against cash, which is much harder to influence."},
+    "Basic EPS": {
+        "what": "Net income divided by the average number of shares outstanding.",
+        "drivers": "Profit, and the share count — buybacks raise it without the business improving.",
+        "watch": "Compare EPS growth against net income growth. A gap between them is the buyback, not the business."},
+    "Diluted EPS": {
+        "what": "Earnings per share assuming all options, convertibles and restricted stock become shares.",
+        "drivers": "Profit and the fully diluted share count.",
+        "watch": "A wide gap to basic EPS signals heavy equity compensation — a real cost to existing holders that never appears as cash."},
+
+    "Cash And Cash Equivalents": {
+        "what": "Money in the bank and instruments convertible to cash within about three months.",
+        "drivers": "Operating cash generation, capital spending, borrowing, dividends and buybacks.",
+        "watch": "Read alongside debt, not on its own. Large cash balances held against larger borrowings are often trapped in the wrong jurisdiction."},
+    "Accounts Receivable": {
+        "what": "Money owed by customers for goods already delivered and recognised as revenue.",
+        "drivers": "Sales volume, payment terms offered, and how promptly customers actually pay.",
+        "watch": "Growing faster than revenue means either customers are slower to pay or terms were loosened to close sales. Both bring the cash further out."},
+    "Inventory": {
+        "what": "Raw materials, work in progress and finished goods not yet sold.",
+        "drivers": "Production plans, demand forecasts and supply-chain lead times.",
+        "watch": "Rising faster than revenue is the classic early signal of demand coming in below plan, and it usually ends in discounting that shows up in gross margin two quarters later."},
+    "Current Assets": {
+        "what": "Everything expected to convert to cash within a year.",
+        "drivers": "Cash, receivables and inventory.",
+        "watch": "Against current liabilities this is the liquidity question: can the next twelve months of obligations be met from the next twelve months of assets."},
+    "Net PPE": {
+        "what": "Property, plant and equipment after accumulated depreciation — the physical asset base.",
+        "drivers": "Capital expenditure less depreciation, plus acquisitions and disposals.",
+        "watch": "Shrinking net PPE while revenue grows means the asset base is being run harder, which raises returns until maintenance can no longer be deferred."},
+    "Goodwill": {
+        "what": "The premium paid for acquisitions over the fair value of the identifiable assets bought.",
+        "drivers": "Acquisition activity and prices paid.",
+        "watch": "It is never a source of cash. Large goodwill relative to equity means an impairment could wipe out a big share of book value without any cash changing hands."},
+    "Total Assets": {
+        "what": "Everything the company owns or controls, at carrying value.",
+        "drivers": "Retained profits, borrowing, share issuance and acquisitions.",
+        "watch": "Assets growing faster than revenue means each unit of assets is producing less — falling asset turnover, and the second term of the DuPont breakdown in section 1."},
+    "Accounts Payable": {
+        "what": "Money owed to suppliers for goods and services already received.",
+        "drivers": "Purchase volumes and the payment terms suppliers grant.",
+        "watch": "Stretching payables is a cheap source of funding until suppliers push back. A sudden fall can quietly consume a quarter's cash flow."},
+    "Current Debt": {
+        "what": "Borrowings falling due within twelve months, including the current portion of longer-term debt.",
+        "drivers": "The maturity schedule and short-term facility use.",
+        "watch": "This is the refinancing risk. Large near-term maturities alongside thin cash means the company must go to the market on the market's terms."},
+    "Current Liabilities": {
+        "what": "All obligations due within a year.",
+        "drivers": "Payables, short-term debt, accrued costs and deferred revenue.",
+        "watch": "Deferred revenue inside this line is a good liability — customers who have already paid — and worth separating from the rest."},
+    "Long Term Debt": {
+        "what": "Borrowings due beyond twelve months.",
+        "drivers": "Issuance, repayment and refinancing decisions.",
+        "watch": "The level matters less than the cost and the maturity wall. Cheap long-dated debt is an asset; expensive debt maturing soon is a problem."},
+    "Total Liabilities Net Minority Interest": {
+        "what": "Everything owed to anyone other than shareholders.",
+        "drivers": "Debt, payables, provisions, leases and deferred tax.",
+        "watch": "Against total assets this gives the plain leverage picture, without the definitional arguments about what counts as debt."},
+    "Retained Earnings": {
+        "what": "Cumulative profit kept in the business rather than paid out, since inception.",
+        "drivers": "Net income less dividends, plus accounting adjustments.",
+        "watch": "A negative balance means the company has lost more over its life than it has earned, or has returned more than it made."},
+    "Stockholders Equity": {
+        "what": "The shareholders' residual claim: total assets less total liabilities. Book value.",
+        "drivers": "Retained profit, share issuance and buybacks.",
+        "watch": "Buybacks reduce equity, which mechanically raises return on equity without any operational improvement. Cross-check against return on assets."},
+
+    "Operating Cash Flow": {
+        "what": "Cash generated by trading, after working capital movements and before investment.",
+        "drivers": "Profit, non-cash charges added back, and swings in receivables, inventory and payables.",
+        "watch": "The single hardest figure to manipulate, and the reason section 4 compares it against net income."},
+    "Depreciation And Amortization": {
+        "what": "The accounting cost of using up long-lived assets, spread over their useful life. No cash leaves the business.",
+        "drivers": "The asset base and the depreciation policy applied to it.",
+        "watch": "Persistently below capital expenditure means the asset base is growing; persistently above means it is shrinking and today's earnings are borrowing from tomorrow's capacity."},
+    "Stock Based Compensation": {
+        "what": "The value of shares and options granted to employees, expensed but paid in equity rather than cash.",
+        "drivers": "Headcount, grant policy and the share price at grant.",
+        "watch": "Added back in cash flow because no cash moved, but it is a genuine cost to existing holders — it shows up as dilution in the share count instead."},
+    "Change In Working Capital": {
+        "what": "Cash absorbed or released by movements in receivables, inventory and payables.",
+        "drivers": "Growth rate, seasonality, and payment discipline on both sides.",
+        "watch": "Growing companies normally absorb working capital; a large release can flatter one period's cash flow and cannot repeat indefinitely."},
+    "Capital Expenditure": {
+        "what": "Cash spent on property, plant, equipment and other long-lived assets. Reported as a negative figure.",
+        "drivers": "Maintenance needs plus growth projects.",
+        "watch": "Splitting maintenance from growth capex is the key judgement in any valuation, and companies rarely disclose it. Depreciation is a rough proxy for the maintenance half."},
+    "Free Cash Flow": {
+        "what": "Operating cash flow less capital expenditure: the cash genuinely available to lenders and owners.",
+        "drivers": "Everything in the operating and investing sections.",
+        "watch": "This is what the DCF in section 5 discounts. One unusual year should not anchor a valuation, which is why the model offers a normalised median instead."},
+    "Cash Dividends Paid": {
+        "what": "Cash actually paid out to shareholders during the period.",
+        "drivers": "The declared dividend per share and the share count.",
+        "watch": "Against free cash flow this is the dividend safety test, and a far better one than the earnings-based payout ratio."},
+    "Repurchase Of Capital Stock": {
+        "what": "Cash spent buying back the company's own shares.",
+        "drivers": "Board authorisation, spare cash and the share price.",
+        "watch": "Buybacks funded by debt at a high valuation destroy value as reliably as they create it when done cheaply. Check the share count actually fell — many buybacks only offset the shares issued to employees."},
+    "Net Issuance Payments Of Debt": {
+        "what": "Net cash raised from, or repaid to, lenders.",
+        "drivers": "Financing needs and refinancing schedules.",
+        "watch": "Positive year after year alongside negative free cash flow means the business is being funded by lenders rather than by customers."},
+}
+
+# Typical cost structure by sector. Filings differ in how much they break out, so
+# this states what usually sits inside these lines for a company of this type
+# rather than inventing a breakdown the data source does not provide.
+SECTOR_COST_NOTES = {
+    "Technology": {
+        "cogs": "hosting and data-centre capacity, third-party licences, hardware components and contract manufacturing, plus support staff attached to delivery",
+        "opex": "engineering salaries inside research and development, with sales commissions and marketing making up most of the selling cost"},
+    "Consumer Cyclical": {
+        "cogs": "raw materials, contract manufacturing, inbound freight and warehousing, plus store or fulfilment labour where retail is involved",
+        "opex": "store or platform operating costs, advertising, and distribution"},
+    "Consumer Defensive": {
+        "cogs": "agricultural and packaging inputs, plant labour, energy and distribution",
+        "opex": "trade marketing and promotional spend, often as large a swing factor as input costs"},
+    "Healthcare": {
+        "cogs": "manufacturing of compounds or devices, quality control, and royalties on licensed intellectual property",
+        "opex": "clinical trial costs inside research and development, and a large specialised sales force"},
+    "Financial Services": {
+        "cogs": "interest paid to depositors and lenders, and credit losses — the revenue line itself is interest and fee income, so conventional margin analysis does not transfer",
+        "opex": "compensation, technology and regulatory compliance"},
+    "Energy": {
+        "cogs": "extraction, refining and transport costs, plus depletion of reserves",
+        "opex": "field administration and exploration costs written off"},
+    "Industrials": {
+        "cogs": "steel and component inputs, factory labour, energy and freight",
+        "opex": "engineering, aftermarket service networks and distribution"},
+    "Basic Materials": {
+        "cogs": "ore, feedstock and energy, which together usually dominate the cost base and make margins swing with commodity prices",
+        "opex": "logistics and site administration"},
+    "Communication Services": {
+        "cogs": "content licensing and production, network capacity and interconnect fees",
+        "opex": "subscriber acquisition marketing and platform engineering"},
+    "Utilities": {
+        "cogs": "fuel and purchased power, and network maintenance",
+        "opex": "regulatory compliance and customer service"},
+    "Real Estate": {
+        "cogs": "property operating costs, maintenance and property taxes",
+        "opex": "leasing commissions and corporate administration"},
+}
+
+
 # --- Company facade ---------------------------------------------------------
 
 def ttm_from_quarters(df_q: pd.DataFrame) -> pd.DataFrame:
@@ -1060,6 +1378,16 @@ class Company:
         else:
             return self.base_fcf
         return float(s.median()) if not s.empty else self.base_fcf
+
+    @cached_property
+    def dividend_history(self):
+        """Per-share dividends actually paid, from the price history's own
+        actions column. Returns an empty series when the source omits it."""
+        h = self.history("5y", "1d")
+        if h is None or h.empty or "Dividends" not in h.columns:
+            return pd.Series(dtype="float64")
+        s = h["Dividends"]
+        return s[s > 0]
 
     @cached_property
     def risk_stats(self):
@@ -1261,6 +1589,115 @@ class Valuation:
         w_e, w_d = (mcap or 0) / total, (debt or 0) / total
         wacc = w_e * cost_equity + w_d * cost_debt * (1 - tax_rate)
         return wacc, cost_equity, w_e, w_d
+
+
+# --- Portfolio return engines ------------------------------------------------
+
+def xirr(cashflows):
+    """Money-weighted (internal) rate of return over dated cash flows.
+
+    Signs follow the investor's perspective: money paid in is negative, the
+    closing value is positive. Solved by bisection rather than Newton's method,
+    which diverges on the irregular flows a real portfolio produces."""
+    flows = sorted([(pd.Timestamp(d), float(a)) for d, a in cashflows if _isnum(a)], key=lambda x: x[0])
+    if len(flows) < 2:
+        return None
+    if not (any(a < 0 for _, a in flows) and any(a > 0 for _, a in flows)):
+        return None
+    t0 = flows[0][0]
+
+    def npv(rate):
+        return sum(a / ((1 + rate) ** ((d - t0).days / 365.0)) for d, a in flows)
+
+    lo, hi = -0.95, 10.0
+    f_lo, f_hi = npv(lo), npv(hi)
+    if f_lo * f_hi > 0:
+        return None
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        f_mid = npv(mid)
+        if f_mid == 0:
+            return mid
+        if f_lo * f_mid < 0:
+            hi, f_hi = mid, f_mid
+        else:
+            lo, f_lo = mid, f_mid
+    return (lo + hi) / 2
+
+
+def twrr(values: pd.Series, flows: pd.Series):
+    """Time-weighted return: each day's return is measured after removing the
+    money that arrived that day, then the daily returns are chained. This
+    isolates how the assets performed from when cash happened to be added,
+    which is what makes it comparable with an index."""
+    if values is None or values.empty:
+        return None
+    v = values.astype(float)
+    c = flows.reindex(v.index).fillna(0.0).astype(float)
+    prev = v.shift()
+    daily = (v - c) / prev.replace(0, np.nan) - 1
+    daily = daily.replace([np.inf, -np.inf], np.nan).dropna()
+    # A long-only portfolio cannot lose more than everything in a single day;
+    # anything beyond that is a data artefact, not a return.
+    daily = daily[(daily > -1) & (daily < 5)]
+    if daily.empty:
+        return None
+    return float((1 + daily).prod() - 1)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_portfolio_history(holdings: tuple, target_currency: str):
+    """Daily value of a set of holdings, plus two dated flow series.
+
+    `holdings` is a tuple of (ticker, shares, cost_per_share, purchase_date_iso)
+    so the whole computation is cacheable. Prices come from one bulk download;
+    currencies are resolved once per distinct currency rather than per holding.
+
+    Two flow series are returned because the two return measures need different
+    ones. Time-weighted return needs the *market value* the position added on
+    the day it entered, otherwise the difference between the entry price and the
+    cost basis the user typed shows up as a fake return. Money-weighted return
+    needs the *cash actually paid*, which is the point of the measure.
+    """
+    empty = (pd.DataFrame(), pd.Series(dtype="float64"),
+             pd.Series(dtype="float64"), pd.Series(dtype="float64"))
+    if not holdings:
+        return empty
+
+    tickers = tuple(dict.fromkeys(h[0] for h in holdings))
+    first = min(pd.Timestamp(h[3]) for h in holdings).date()
+    closes = load_batch_close(tickers, first - timedelta(days=7), datetime.now().date() + timedelta(days=1))
+    if closes.empty:
+        return empty
+    closes = closes.ffill()
+    closes.index = pd.to_datetime(closes.index).tz_localize(None)
+
+    infos = dict(zip(tickers, parallel_map(_fetch_info, tickers)))
+    fx_map = {}
+    for t in tickers:
+        cur = (infos.get(t) or {}).get("currency", "USD")
+        if cur not in fx_map:
+            fx_map[cur] = load_fx(cur, target_currency) or 1.0
+
+    per_ticker = pd.DataFrame(0.0, index=closes.index, columns=list(tickers))
+    flows_market = pd.Series(0.0, index=closes.index)
+    flows_cash = pd.Series(0.0, index=closes.index)
+    for ticker, shares, cost, bought in holdings:
+        if ticker not in closes.columns:
+            continue
+        rate = fx_map.get((infos.get(ticker) or {}).get("currency", "USD"), 1.0)
+        pos = closes.index.searchsorted(pd.Timestamp(bought))
+        buy_day = closes.index[min(pos, len(closes.index) - 1)]
+        entry_price = float(closes.loc[buy_day, ticker])
+        if not _isnum(entry_price) or entry_price <= 0:
+            continue
+        held = pd.Series(0.0, index=closes.index)
+        held.loc[held.index >= buy_day] = float(shares)
+        per_ticker[ticker] = per_ticker[ticker] + held * closes[ticker] * rate
+        flows_market.loc[buy_day] += float(shares) * entry_price * rate
+        paid = float(cost) if _isnum(cost) and cost > 0 else entry_price
+        flows_cash.loc[buy_day] += float(shares) * paid * rate
+    return per_ticker, per_ticker.sum(axis=1), flows_market, flows_cash
 
 
 # --- Composite scorecard -----------------------------------------------------
@@ -1797,19 +2234,25 @@ def segmented(label, options, key, default_index=0, help=None):
 # ==============================================================================
 
 MODULES = [
-    ("0. Guide & Method", "How the terminal is put together and when to use each module."),
-    ("1. Executive Dashboard", "One screen: composite score, valuation, profitability, health, quality flags."),
-    ("2. Technical Analysis", "Price action, trend, momentum and volatility."),
-    ("3. Financial Statements", "Reported figures, common-size views and year-on-year variance."),
-    ("4. Cash Flow Quality", "Whether reported profit actually converts into cash."),
-    ("5. Intrinsic Valuation", "Three-phase DCF, reverse DCF, scenarios and sensitivity."),
-    ("6. Peer Comparables", "Relative valuation against live-matched industry peers."),
-    ("7. Risk & Scenarios", "Volatility, drawdown, value at risk and Monte Carlo paths."),
-    ("8. Price & Capital Dynamics", "Price, market cap, news context and the EV bridge."),
-    ("9. Market Leaders", "Cross-company ranking by market cap and revenue."),
+    ("Guide & Method", "How the terminal is put together and when to use each module."),
+    ("Executive Dashboard", "One screen: composite score, valuation, profitability, health, dividends, quality flags."),
+    ("Technical Analysis", "Price action, trend, momentum and volatility."),
+    ("Financial Statements", "Reported figures, line-by-line explanations and industry-relative common size."),
+    ("Cash Flow Quality", "Whether reported profit actually converts into cash."),
+    ("Intrinsic Valuation", "Three-phase DCF, reverse DCF, scenarios and sensitivity."),
+    ("Peer Comparables", "Relative valuation against live-matched industry peers."),
+    ("Compare Companies", "Two or more companies side by side on price, quality, valuation and growth."),
+    ("Risk & Scenarios", "Volatility, drawdown, value at risk and Monte Carlo paths."),
+    ("Investment Simulator", "What an investment made on a past date would be worth today."),
+    ("Portfolio", "Allocation against targets, concentration limits, TWRR and money-weighted return."),
+    ("Price & Capital Dynamics", "Price, market cap, news context and the EV bridge."),
+    ("Market Leaders", "Cross-company ranking by market cap and revenue."),
 ]
-MODULE_NAMES = [m for m, _ in MODULES]
-MODULE_HELP = dict(MODULES)
+MODULE_LABELS = [f"{i:02d}. {name}" for i, (name, _) in enumerate(MODULES)]
+LABEL_BY_NAME = dict(zip([n for n, _ in MODULES], MODULE_LABELS))
+NAME_BY_LABEL = dict(zip(MODULE_LABELS, [n for n, _ in MODULES]))
+MODULE_HELP = {f"{i:02d}. {n}": h for i, (n, h) in enumerate(MODULES)}
+
 
 MARKETS = {
     "United States": "", "Germany (Xetra)": ".DE", "Vietnam (HOSE)": ".VN",
@@ -1827,15 +2270,12 @@ INTERVALS = {"5d": "15m", "1mo": "60m", "3mo": "1d", "6mo": "1d", "ytd": "1d",
 st.session_state[_LOAD_ERRORS_KEY] = []
 
 
-def company_logo(info):
-    """Yahoo's `logo_url` is frequently empty now, so fall back to deriving a
-    logo from the company's own website domain (Clearbit, no API key)."""
-    logo = info.get("logo_url")
-    if logo:
-        return logo
-    site = info.get("website") or ""
-    domain = site.replace("https://", "").replace("http://", "").split("/")[0].replace("www.", "").strip()
-    return f"https://logo.clearbit.com/{domain}" if domain else None
+def monogram(name: str) -> str:
+    """Initials tile used in place of a remote logo lookup. Third-party logo
+    services fail often enough (and add a blocking request) that a rendered
+    monogram is both faster and more reliable."""
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", name or "") if w]
+    return ("".join(w[0] for w in words[:2]) or "?").upper()
 
 
 with st.sidebar:
@@ -1869,7 +2309,8 @@ with st.sidebar:
     ticker = symbol if (suffix == "MANUAL" or "." in symbol) else f"{symbol}{suffix}"
 
     st.markdown("<div class='side-group'>View</div>", unsafe_allow_html=True)
-    module = st.selectbox("Module", MODULE_NAMES, key="module", label_visibility="collapsed")
+    module = st.selectbox("Module", MODULE_LABELS, key="module", label_visibility="collapsed")
+    view = NAME_BY_LABEL[module]
     st.caption(MODULE_HELP[module])
 
     st.markdown("<div class='side-group'>Reporting basis</div>", unsafe_allow_html=True)
@@ -1881,11 +2322,7 @@ with st.sidebar:
     currency_mode = st.selectbox("Display currency", ["Native", "USD", "EUR", "VND", "GBP", "JPY"], index=0)
 
     st.markdown("<div class='side-group'>Presentation</div>", unsafe_allow_html=True)
-    tcol, dcol = st.columns(2)
-    with tcol:
-        st.selectbox("Theme", list(THEMES.keys()), key="theme")
-    with dcol:
-        st.selectbox("Density", list(DENSITY.keys()), key="density")
+    st.selectbox("Theme", list(THEMES.keys()), key="theme")
     st.checkbox("Expand figure explanations by default", key="explain_open")
 
     st.markdown("<div class='side-group'>Data</div>", unsafe_allow_html=True)
@@ -1900,17 +2337,16 @@ with st.sidebar:
 
 
 # --- Guide page (no data loading, so it renders instantly) --------------------
-if module == "0. Guide & Method":
+if view == "Guide & Method":
     st.markdown(f"<div class='eyebrow'>{APP_NAME}</div>"
                 f"<div class='hdr-name'>Guide &amp; method</div>"
                 f"<div class='hdr-meta'>What each module answers, how the numbers are built, and what the "
                 f"figures assume. Nothing on this page loads market data.</div>", unsafe_allow_html=True)
 
     section("Modules", "Pick the module that matches the question you are actually asking.")
-    for name, purpose in MODULES[1:]:
-        n, title = name.split(". ", 1)
+    for idx, (name, purpose) in enumerate(MODULES[1:], start=1):
         st.markdown(f"<div class='card'><div class='card-title'>"
-                    f"<span class='section-num'>{n}</span> &nbsp;{title}</div>"
+                    f"<span class='section-num'>{idx:02d}</span> &nbsp;{name}</div>"
                     f"<div class='card-body'>{purpose}</div></div>", unsafe_allow_html=True)
 
     section("How the report is structured",
@@ -1985,16 +2421,10 @@ extras = compute_extras(co)
 # --- Header ------------------------------------------------------------------
 h_left, h_right = st.columns([3, 1.15], vertical_alignment="center")
 with h_left:
-    logo = company_logo(info)
     lg, txt = st.columns([1, 9], vertical_alignment="center")
     with lg:
-        if logo:
-            st.image(logo, width=46)
-        else:
-            initials = "".join(w[0] for w in co.name.split()[:2]).upper()
-            st.markdown(f"<div style='width:44px;height:44px;border-radius:9px;background:{T['neu_bg']};"
-                        f"color:{T['accent']};display:flex;align-items:center;justify-content:center;"
-                        f"font-weight:800;font-size:16px'>{initials}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='monogram' style='background:{T['neu_bg']};color:{T['accent']}'>"
+                    f"{monogram(co.name)}</div>", unsafe_allow_html=True)
     with txt:
         st.markdown(
             f"<div class='eyebrow'>{co.ticker} · {market_label(co.ticker)}</div>"
@@ -2081,7 +2511,7 @@ def tone_for(value, good, bad, higher_better=True):
 # 8. MODULES
 # ==============================================================================
 
-if module == "1. Executive Dashboard":
+if view == "Executive Dashboard":
     scorecard = build_scorecard(co, extras)
     section("Executive summary",
             "A single screen answering: what is the market paying, what is the business earning, "
@@ -2135,7 +2565,8 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
     # --- Headline KPI strip ---------------------------------------------------
     ev = info.get("enterpriseValue")
     fcf_yield = safe_div(co.base_fcf, co.market_cap)
-    div_y = yield_as_fraction(info.get("dividendYield"))
+    div_facts = dividend_facts(info, co.price)
+    div_y = div_facts["yield"]
     nd_ebitda = safe_div(co.net_debt, info.get("ebitda"))
     kpi_grid([
         {"label": "Market cap", "value": Fmt.money(co.market_cap * fx if co.market_cap else None, sym),
@@ -2165,12 +2596,14 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
          "tone": tone_for(nd_ebitda, 2, 4, higher_better=False),
          "help": "Years of cash earnings needed to repay net debt."},
         {"label": "Dividend yield", "value": Fmt.as_pct(div_y),
-         "sub": f"Payout {Fmt.as_pct(info.get('payoutRatio'))}", "tone": "flat",
-         "help": "Annual dividend as a share of the current price."},
+         "sub": (f"Ex-dividend {Fmt.date(div_facts['ex_date'])}" if div_facts["ex_date"]
+                 else f"Payout {Fmt.as_pct(div_facts['payout'])}"), "tone": "flat",
+         "help": "Annual dividend per share divided by the current price. Derived from the dividend "
+                 "rate rather than the reported yield field, which is inconsistent between data versions."},
     ])
 
     tabs = st.tabs(["Growth & margins", "Valuation", "Returns", "Balance sheet",
-                    "Quality flags", "Profile"])
+                    "Quality flags", "Dividends", "Profile"])
 
     inc_d = to_display(co.inc, fx)
     bs_d = to_display(co.bs, fx)
@@ -2390,8 +2823,96 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
                 checklist([{"label": t["label"], "state": "pass" if t["pass"] else "fail",
                             "value": t["detail"], "detail": ""} for t in f_tests], record=False)
 
-    # -- Profile ---------------------------------------------------------------
+    # -- Dividends ---------------------------------------------------------------
     with tabs[5]:
+        cf_div = to_display(co.cf, fx)
+        div_paid = abs(last(cf_div, "Cash Dividends Paid") or 0)
+        buyback = abs(last(cf_div, "Repurchase Of Capital Stock") or 0)
+        fcf_now = (co.base_fcf or 0) * fx
+        mcap_now = (co.market_cap or 0) * fx
+        buyback_yield = safe_div(buyback, mcap_now)
+        total_yield = (div_y or 0) + (buyback_yield or 0)
+        cover = safe_div(fcf_now, div_paid) if div_paid else None
+
+        if not _isnum(div_y) and not div_paid:
+            empty_state("This company does not currently pay a dividend.",
+                        "Retained cash shows up in the balance sheet and, for buybacks, in the "
+                        "financing section of the cash flow statement.")
+        else:
+            kpi_grid([
+                {"label": "Dividend yield", "value": Fmt.as_pct(div_y),
+                 "sub": f"Five-year average {Fmt.as_pct(div_facts['five_year_avg'])}",
+                 "tone": "flat"},
+                {"label": "Annual dividend", "value": Fmt.price(
+                    (div_facts["rate"] or 0) * fx if _isnum(div_facts["rate"]) else None, sym),
+                 "sub": "Per share, most recent annualised rate", "tone": "flat"},
+                {"label": "Ex-dividend date", "value": Fmt.date(div_facts["ex_date"]),
+                 "sub": "Buy before this date to receive the next payment", "tone": "flat",
+                 "help": "On the ex-dividend date the shares trade without the upcoming payment, and the "
+                         "price typically opens lower by roughly the dividend amount."},
+                {"label": "Next payment", "value": Fmt.date(div_facts["pay_date"]),
+                 "sub": "Date the declared dividend is paid", "tone": "flat"},
+                {"label": "Payout ratio", "value": Fmt.as_pct(div_facts["payout"]),
+                 "sub": "Share of earnings distributed",
+                 "tone": tone_for((div_facts["payout"] or 0) * 100 if _isnum(div_facts["payout"]) else None,
+                                  60, 90, higher_better=False),
+                 "help": "Above roughly 80% of earnings leaves little room to keep paying through a weak year."},
+                {"label": "Free cash flow cover", "value": Fmt.ratio(cover),
+                 "sub": f"FCF {Fmt.money(fcf_now, sym)} against {Fmt.money(div_paid, sym)} paid",
+                 "tone": tone_for(cover, 1.5, 1.0)},
+                {"label": "Buyback yield", "value": Fmt.as_pct(buyback_yield),
+                 "sub": f"{Fmt.money(buyback, sym)} of stock repurchased", "tone": "flat"},
+                {"label": "Total shareholder yield", "value": Fmt.as_pct(total_yield),
+                 "sub": "Dividends plus buybacks against market cap", "tone": "flat",
+                 "help": "The full cash return to owners; a company with no dividend can still return a lot."},
+            ], min_width=200)
+
+            hist_div = co.dividend_history
+            if not hist_div.empty:
+                per_year = hist_div.groupby(hist_div.index.year).sum() * fx
+                figdv = go.Figure(go.Bar(x=[str(y) for y in per_year.index], y=per_year.values,
+                                         marker_color=T["accent_soft"], opacity=.85))
+                figdv.update_yaxes(title_text=f"Dividends per share ({sym})")
+                figdv.update_xaxes(type="category")
+                style_fig(figdv, height=300, legend="off")
+                figure(figdv, "Dividends paid per share, by year",
+                       "Every dividend recorded against the shares, summed by calendar year.",
+                       "Look for an unbroken, rising staircase. A **flat** run means the real value of the "
+                       "income is being eroded by inflation; a **cut** is the single most reliable signal that "
+                       "management sees pressure it has not yet talked about.",
+                       "Note that a partial current year will look like a fall simply because not every "
+                       "payment has happened yet.",
+                       data=per_year.to_frame("Dividend per share"))
+            elif div_paid:
+                yrs = year_labels(cf_div.index)
+                paid = cf_div["Cash Dividends Paid"].abs() if "Cash Dividends Paid" in cf_div.columns else None
+                if paid is not None:
+                    figdv = go.Figure(go.Bar(x=yrs, y=paid, marker_color=T["accent_soft"], opacity=.85))
+                    figdv.update_yaxes(title_text=f"Total dividends paid ({sym})")
+                    figdv.update_xaxes(type="category")
+                    style_fig(figdv, height=300, legend="off")
+                    figure(figdv, "Total cash paid out as dividends",
+                           "The cash actually leaving the business as dividends each reported year.",
+                           "Rising totals with a flat per-share dividend would mean the share count grew. "
+                           "Compare against free cash flow in section 4 to see whether the payment is funded "
+                           "by the business or by borrowing.",
+                           "This is the company-level view; the per-share view is what an individual holder receives.")
+
+            note(f"""
+The shares yield **{Fmt.as_pct(div_y)}**, against a five-year average of {Fmt.as_pct(div_facts['five_year_avg'])},
+and the next ex-dividend date on record is **{Fmt.date(div_facts['ex_date'])}**.
+- **The ex-dividend date is the one that matters for eligibility.** Buy on or after it and the seller keeps the
+upcoming payment. The price typically drops by roughly the dividend on that morning, so buying just before it
+is not free income.
+- **Cover, not yield, is the safety question.** Free cash flow covers the dividend
+{Fmt.ratio(cover)} over, and the payout ratio is {Fmt.as_pct(div_facts['payout'])} of earnings. A high yield
+alongside thin cover is usually the market pricing in a cut rather than an opportunity.
+- **Buybacks count too.** Adding {Fmt.as_pct(buyback_yield)} of repurchases gives a total shareholder yield of
+{Fmt.as_pct(total_yield)}, which is the fairer comparison against a company that returns cash a different way.
+""", tone="pos" if (cover or 0) > 1.5 else "warn" if div_paid else "neu")
+
+    # -- Profile ---------------------------------------------------------------
+    with tabs[6]:
         emp = info.get("fullTimeEmployees")
         ipo = info.get("firstTradeDateEpochUtc")
         try:
@@ -2414,7 +2935,7 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
 
 
 # ==============================================================================
-elif module == "2. Technical Analysis":
+elif view == "Technical Analysis":
     hist = Indicators.enrich(co.history(period, interval))
     if hist.empty:
         empty_state("No price history returned for this symbol and period.",
@@ -2538,7 +3059,7 @@ current move: breakouts on light volume are the ones that most often fail.
 
 
 # ==============================================================================
-elif module == "3. Financial Statements":
+elif view == "Financial Statements":
     inc_r, bs_r, cf_r = co.basis_statements(basis)
     inc_d, bs_d, cf_d = to_display(inc_r, fx), to_display(bs_r, fx), to_display(cf_r, fx)
 
@@ -2552,11 +3073,30 @@ elif module == "3. Financial Statements":
             + (" (last four quarters summed for flow items)." if basis == "TTM" else ".")
             + " Use the view switch to move between absolute figures, common-size percentages and growth rates.")
 
-    view = segmented("View", ["Reported", "Common size", "Growth"], key="stmt_view",
-                     help="Common size expresses each line as a share of revenue (or total assets on the "
-                          "balance sheet). Growth shows the period-on-period change.")
+    stmt_view = segmented("View", ["Reported", "Common size", "Growth"], key="stmt_view",
+                          help="Common size expresses each line as a share of revenue (or total assets on the "
+                               "balance sheet) and adds the industry median beside it. Growth shows the "
+                               "period-on-period change.")
 
-    def statement_table(df, items, title, what, base=None, base_label="revenue"):
+    # Industry benchmark: same live peer matching as section 6, so the
+    # common-size view always has something to be compared against.
+    bench = {"income": pd.Series(dtype="float64"), "balance": pd.Series(dtype="float64"), "n": 0}
+    with st.spinner("Building the industry benchmark from live peers…"):
+        bench_peers = tuple(suggest_peers(co.ticker, info.get("sector"), info.get("industry"), max_n=8))
+        if bench_peers:
+            bench = load_industry_commonsize(bench_peers)
+    if stmt_view == "Common size":
+        if bench["n"]:
+            st.caption(f"Industry median columns are computed live from {bench['n']} peers matched on "
+                       f"{info.get('industry') or info.get('sector') or 'sector'} "
+                       f"({', '.join(bench_peers[:6])}{'…' if len(bench_peers) > 6 else ''}). Each peer is "
+                       f"expressed as a share of its own revenue or assets before the median is taken, so "
+                       f"size differences do not distort the comparison.")
+        else:
+            st.caption("No live peer group resolved for this company right now, so the industry median "
+                       "columns are omitted rather than filled with a placeholder.")
+
+    def statement_table(df, items, title, what, base=None, base_label="revenue", bench_key=None):
         """Renders one grouped block of a statement in the currently selected
         view. Periods run newest-first; empty periods are dropped, because the
         oldest reported year is often blank after a restatement or spin-off."""
@@ -2568,11 +3108,20 @@ elif module == "3. Financial Statements":
         if sub.empty:
             return
         fmt = "{:,.0f}"
-        if view == "Common size" and base is not None:
+        extra_cols = []
+        if stmt_view == "Common size" and base is not None:
             denom = base.reindex(sub.columns).replace(0, np.nan)
             sub = sub.div(denom, axis=1) * 100
             fmt = "{:,.1f}%"
-        elif view == "Growth":
+            med = bench.get(bench_key) if bench_key else None
+            if med is not None and not med.empty:
+                latest_col = sub.columns[0]
+                industry = med.reindex(sub.index)
+                if industry.notna().any():
+                    sub["Industry median"] = industry
+                    sub["Gap (pp)"] = sub[latest_col] - industry
+                    extra_cols = ["Industry median", "Gap (pp)"]
+        elif stmt_view == "Growth":
             ordered = sub[sorted(sub.columns)]
             sub = (ordered.pct_change(axis=1) * 100)[sorted(sub.columns, reverse=True)]
             fmt = "{:+,.1f}%"
@@ -2580,15 +3129,25 @@ elif module == "3. Financial Statements":
             latest, prev = sub.iloc[:, 0], sub.iloc[:, 1]
             sub["Change"] = latest - prev
             sub["Change %"] = (latest - prev) / prev.abs().replace(0, np.nan) * 100
-        labels = year_labels(list(sub.columns), basis) if view != "Reported" else \
-            year_labels([c for c in sub.columns if isinstance(c, pd.Timestamp)], basis) + \
-            [c for c in sub.columns if not isinstance(c, pd.Timestamp)]
-        sub.columns = labels
-        formats = {c: ("{:+,.1f}%" if "%" in str(c) else "{:+,.0f}" if c == "Change" else fmt)
-                   for c in sub.columns}
+        sub.columns = (year_labels([c for c in sub.columns if isinstance(c, pd.Timestamp)], basis)
+                       + [c for c in sub.columns if not isinstance(c, pd.Timestamp)])
+        formats = {}
+        for c in sub.columns:
+            label = str(c)
+            if label == "Gap (pp)":
+                formats[c] = "{:+,.1f}"
+            elif label == "Industry median":
+                formats[c] = "{:,.1f}%"
+            elif label == "Change %":
+                formats[c] = "{:+,.1f}%"
+            elif label == "Change":
+                formats[c] = "{:+,.0f}"
+            else:
+                formats[c] = fmt
         table(sub, title, what, formats=formats)
 
-    t_inc, t_bs, t_cf = st.tabs(["Income statement", "Balance sheet", "Cash flow"])
+    t_inc, t_bs, t_cf, t_guide = st.tabs(["Income statement", "Balance sheet", "Cash flow",
+                                          "Line by line"])
 
     with t_inc:
         if inc_d.empty:
@@ -2600,18 +3159,18 @@ elif module == "3. Financial Statements":
                 statement_table(inc_d, ["Total Revenue", "Cost Of Revenue", "Gross Profit"],
                                 "Revenue and gross profit",
                                 "What the company sold and what it kept after the direct cost of selling it.",
-                                base=rev_base)
+                                base=rev_base, bench_key="income")
                 statement_table(inc_d, ["Operating Expense", "Research And Development",
                                         "Selling General And Administration", "Operating Income"],
                                 "Operating costs and operating profit",
                                 "The overhead layer between gross profit and profit from operations.",
-                                base=rev_base)
+                                base=rev_base, bench_key="income")
                 statement_table(inc_d, ["Net Non Operating Interest Income Expense", "Interest Expense",
                                         "Other Income Expense", "Pretax Income", "Tax Provision",
                                         "Net Income", "Basic EPS", "Diluted EPS"],
                                 "Below the operating line",
                                 "Financing costs, tax, and what finally reaches shareholders.",
-                                base=rev_base)
+                                base=rev_base, bench_key="income")
             with right:
                 years = [pd.Timestamp(d) for d in inc_d.index]
                 labels = year_labels(inc_d.index, basis)
@@ -2654,19 +3213,19 @@ elif module == "3. Financial Statements":
                 statement_table(bs_d, ["Cash And Cash Equivalents", "Other Short Term Investments",
                                        "Accounts Receivable", "Inventory", "Current Assets"],
                                 "Current assets", "Resources expected to convert to cash within a year.",
-                                base=asset_base, base_label="total assets")
+                                base=asset_base, base_label="total assets", bench_key="balance")
                 statement_table(bs_d, ["Net PPE", "Goodwill", "Other Intangible Assets",
                                        "Total Non Current Assets", "Total Assets"],
                                 "Non-current assets", "The long-lived asset base.",
-                                base=asset_base, base_label="total assets")
+                                base=asset_base, base_label="total assets", bench_key="balance")
                 statement_table(bs_d, ["Accounts Payable", "Current Debt", "Current Liabilities",
                                        "Long Term Debt", "Total Non Current Liabilities",
                                        "Total Liabilities Net Minority Interest"],
                                 "Liabilities", "What is owed, split by when it falls due.",
-                                base=asset_base, base_label="total assets")
+                                base=asset_base, base_label="total assets", bench_key="balance")
                 statement_table(bs_d, ["Common Stock", "Retained Earnings", "Stockholders Equity"],
                                 "Equity", "The shareholders' residual claim.",
-                                base=asset_base, base_label="total assets")
+                                base=asset_base, base_label="total assets", bench_key="balance")
             with right:
                 latest = bs_d.iloc[-1]
                 ca = latest.get("Current Assets", 0) or 0
@@ -2715,6 +3274,105 @@ elif module == "3. Financial Statements":
             statement_table(cf_d, ["Free Cash Flow", "End Cash Position"],
                             "Summary", "The bottom line of the cash statement.")
 
+    with t_guide:
+        st.markdown(
+            "<div class='section-sub'>Every line the company actually reports, explained: what it is, what "
+            "moves it, what to watch — with this company's own figure, its share of the relevant total, its "
+            "change on the prior period, and the industry median for the same line where a peer group "
+            "resolved. Generated from the reported statements, so it follows whatever the company files.</div>",
+            unsafe_allow_html=True)
+
+        cost_note = SECTOR_COST_NOTES.get(info.get("sector") or "", None)
+        summary = (info.get("longBusinessSummary") or "").strip()
+        first_sentences = " ".join(re.split(r"(?<=[.!?]) ", summary)[:3]) if summary else ""
+        emp = info.get("fullTimeEmployees")
+        rev_latest = last(inc_d, "Total Revenue")
+        rev_per_head = safe_div(rev_latest, emp) if _isnum(emp) and emp else None
+
+        st.markdown(
+            f"<div class='card'><div class='card-title'>What this company actually sells</div>"
+            f"<div class='card-body'>{first_sentences or 'No business description is available from the data source.'}</div>"
+            f"<div class='card-meta' style='margin-top:10px'>"
+            f"Classified as <b>{co.industry}</b> within <b>{co.sector}</b>"
+            + (f" · revenue per employee <b>{Fmt.money(rev_per_head, sym)}</b> across "
+               f"<b>{emp:,}</b> staff" if rev_per_head else "")
+            + (f"<br>For a business of this type the direct cost line typically contains {cost_note['cogs']}; "
+               f"operating expenses are usually dominated by {cost_note['opex']}. The filing's own breakdown "
+               f"is in the annual report — this data source does not publish segment detail."
+               if cost_note else "")
+            + "</div></div>", unsafe_allow_html=True)
+
+        def line_cards(df, names, base_series, bench_key, share_label):
+            """One explanatory card per reported line, with this company's figure
+            beside the industry median for the same line."""
+            base_latest = None
+            if base_series is not None and not base_series.dropna().empty:
+                base_latest = float(base_series.dropna().iloc[-1])
+            med = bench.get(bench_key) if bench_key else None
+            shown = 0
+            for name in names:
+                if name not in df.columns:
+                    continue
+                series = df[name].dropna()
+                if series.empty:
+                    continue
+                val = float(series.iloc[-1])
+                share = safe_div(val, base_latest) if base_latest else None
+                yoy = (val / float(series.iloc[-2]) - 1) if len(series) >= 2 and series.iloc[-2] else None
+                growth = cagr(float(series.iloc[0]), val, len(series) - 1) if len(series) >= 3 and series.iloc[0] > 0 else None
+                ind = None
+                if med is not None and not med.empty and name in med.index and _isnum(med.get(name)):
+                    ind = float(med[name])
+                guide = LINE_ITEMS.get(name)
+
+                facts = [f"<b>{Fmt.money(val, sym)}</b> in the latest {basis.lower()} period"]
+                if share is not None:
+                    facts.append(f"{Fmt.as_pct(share)} of {share_label}")
+                if yoy is not None:
+                    facts.append(f"{Fmt.as_pct(yoy, signed=True)} on the prior period")
+                if growth is not None:
+                    facts.append(f"{Fmt.as_pct(growth)} a year compounded")
+                if ind is not None and share is not None:
+                    gap = share * 100 - ind
+                    facts.append(
+                        f"industry median {ind:,.1f}% — this company is <b>in line</b>" if abs(gap) < 0.05
+                        else f"industry median {ind:,.1f}% — this company is "
+                             f"<b>{abs(gap):,.1f}pp {'above' if gap > 0 else 'below'}</b>")
+
+                rows = f"<div class='defn-row'><div class='defn-k'>Figures</div><div>{' · '.join(facts)}</div></div>"
+                if guide:
+                    rows += (f"<div class='defn-row'><div class='defn-k'>What it is</div><div>{guide['what']}</div></div>"
+                             f"<div class='defn-row'><div class='defn-k'>What moves it</div><div>{guide['drivers']}</div></div>"
+                             f"<div class='defn-row'><div class='defn-k'>What to watch</div><div>{guide['watch']}</div></div>")
+                st.markdown(
+                    f"<div class='defn'><div class='defn-h'><span class='defn-name'>{name}</span>"
+                    f"<span class='defn-val'>{Fmt.money(val, sym)}</span></div>{rows}</div>",
+                    unsafe_allow_html=True)
+                shown += 1
+            if not shown:
+                st.caption("None of these lines are reported for this company.")
+
+        g1, g2, g3 = st.tabs(["Income statement lines", "Balance sheet lines", "Cash flow lines"])
+        with g1:
+            line_cards(inc_d, ["Total Revenue", "Cost Of Revenue", "Gross Profit", "Operating Expense",
+                               "Research And Development", "Selling General And Administration",
+                               "Operating Income", "EBITDA", "Interest Expense", "Pretax Income",
+                               "Tax Provision", "Net Income", "Basic EPS", "Diluted EPS"],
+                       col(inc_d, "Total Revenue"), "income", "revenue")
+        with g2:
+            line_cards(bs_d, ["Cash And Cash Equivalents", "Accounts Receivable", "Inventory",
+                              "Current Assets", "Net PPE", "Goodwill", "Total Assets", "Accounts Payable",
+                              "Current Debt", "Current Liabilities", "Long Term Debt",
+                              "Total Liabilities Net Minority Interest", "Retained Earnings",
+                              "Stockholders Equity"],
+                       col(bs_d, "Total Assets"), "balance", "total assets")
+        with g3:
+            line_cards(cf_d, ["Operating Cash Flow", "Depreciation And Amortization",
+                              "Stock Based Compensation", "Change In Working Capital",
+                              "Capital Expenditure", "Free Cash Flow", "Cash Dividends Paid",
+                              "Repurchase Of Capital Stock", "Net Issuance Payments Of Debt"],
+                       col(inc_d, "Total Revenue"), None, "revenue")
+
     # --- Export ---------------------------------------------------------------
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -2727,7 +3385,7 @@ elif module == "3. Financial Statements":
 
 
 # ==============================================================================
-elif module == "4. Cash Flow Quality":
+elif view == "Cash Flow Quality":
     cf_d, inc_d = to_display(co.cf, fx), to_display(co.inc, fx)
     if cf_d.empty:
         empty_state("No cash flow statement available for this symbol.")
@@ -2889,7 +3547,7 @@ in section 1 before drawing a conclusion.
 
 
 # ==============================================================================
-elif module == "5. Intrinsic Valuation":
+elif view == "Intrinsic Valuation":
     section("Discounted cash flow",
             "What the business is worth on its own cash generation, independent of what the market happens "
             "to pay for it today.")
@@ -3155,7 +3813,7 @@ from consensus, which the reverse DCF above makes explicit.
 
 
 # ==============================================================================
-elif module == "6. Peer Comparables":
+elif view == "Peer Comparables":
     section("Relative valuation",
             "What the market pays for comparable businesses today — a different question from what this "
             "business is intrinsically worth.")
@@ -3367,7 +4025,7 @@ currently paying for similar businesses.
 
 
 # ==============================================================================
-elif module == "7. Risk & Scenarios":
+elif view == "Risk & Scenarios":
     section("Risk profile",
             "How much the position moves, how far it has fallen before, and what a year of the same behaviour "
             "could look like.")
@@ -3518,7 +4176,7 @@ in this position would force you to sell, the position is too large regardless o
 
 
 # ==============================================================================
-elif module == "8. Price & Capital Dynamics":
+elif view == "Price & Capital Dynamics":
     section("Price, capital and context",
             "What actually happened to the shares over the selected window, and what was in the news while "
             "it happened.")
@@ -3661,7 +4319,7 @@ largest drawdown over this window.
 
 
 # ==============================================================================
-elif module == "9. Market Leaders":
+elif view == "Market Leaders":
     section("Market leaders",
             "Cross-company ranking by size and revenue. Pools are a starting universe, not an exhaustive index.")
 
@@ -3812,6 +4470,604 @@ elif module == "9. Market Leaders":
 
 
 # ==============================================================================
+elif view == "Compare Companies":
+    section("Side by side",
+            "Two or more companies on identical measures. Everything is converted to a single currency and "
+            "rebased to a common starting point, so the comparison is about the businesses rather than about "
+            "share prices or listing currencies.")
+
+    with st.spinner("Suggesting comparable companies…"):
+        sugg = suggest_peers(co.ticker, info.get("sector"), info.get("industry"), max_n=6)
+    default_list = ", ".join(dict.fromkeys([co.ticker] + sugg[:2]))
+    raw = st.text_input("Companies to compare (comma separated, up to eight)", value=default_list,
+                        help="Any symbol the data source knows, including cross-market ones such as SAP.DE "
+                             "or 7203.T. The company selected in the sidebar is added automatically.")
+    picks = [t.strip().upper() for t in raw.split(",") if t.strip()][:8]
+    universe = tuple(dict.fromkeys(picks + [co.ticker]))
+
+    if len(universe) < 2:
+        empty_state("Add at least one more company to compare against.")
+        st.stop()
+
+    with st.spinner(f"Loading {len(universe)} companies in parallel…"):
+        cmp_df = load_comparables(universe, target_currency)
+    if cmp_df.empty:
+        empty_state("None of those symbols returned usable data.")
+        st.stop()
+
+    start = {"5d": 7, "1mo": 31, "3mo": 93, "6mo": 186, "1y": 365,
+             "3y": 1095, "5y": 1825, "10y": 3650}.get(period)
+    if period == "ytd":
+        start_date = datetime(datetime.now().year, 1, 1).date()
+    elif start is None:
+        start_date = (datetime.now() - timedelta(days=365 * 10)).date()
+    else:
+        start_date = (datetime.now() - timedelta(days=start)).date()
+    with st.spinner("Loading price history…"):
+        closes = load_batch_close(tuple(cmp_df.index), start_date, datetime.now().date())
+
+    returns_12m = {}
+    if not closes.empty:
+        rebased = closes.dropna(how="all").ffill()
+        rebased = rebased / rebased.bfill().iloc[0] * 100
+        figc = go.Figure()
+        for t in cmp_df.index:
+            if t not in rebased.columns:
+                continue
+            series = rebased[t].dropna()
+            if series.empty:
+                continue
+            returns_12m[t] = float(series.iloc[-1] / 100 - 1)
+            figc.add_trace(go.Scatter(x=series.index, y=series, name=t, mode="lines",
+                                      line=dict(width=3 if t == co.ticker else 1.8)))
+        figc.add_hline(y=100, line_dash="dot", line_color=T["faint"])
+        figc.update_yaxes(title_text="Rebased to 100 at the start")
+        figc.update_layout(hovermode="x unified")
+        style_fig(figc, height=400)
+        figure(figc, f"Relative price performance over {period_label.lower()}",
+               "Every company's price rebased to 100 on the first day shown, so the lines can be compared "
+               "directly regardless of the actual share prices or currencies.",
+               "The vertical gap between two lines at any date is the difference in total percentage return "
+               "since the start. A line crossing another is a change in relative performance, which is more "
+               "informative than either line alone.",
+               "Rebasing removes the two things that make raw price charts misleading: differing share prices "
+               "and differing currencies.",
+               data=rebased)
+
+    display_cols = ["Name", "Price", "P/E", "Fwd P/E", "P/B", "EV/EBITDA", "FCF Yield (%)",
+                    "Op Margin (%)", "ROE (%)", "Revenue Growth (%)", "Net Debt/EBITDA", "Market Cap"]
+    shown = cmp_df[[c for c in display_cols if c in cmp_df.columns]]
+    table(shown, "Comparison matrix",
+          f"The same metrics for every company, in {target_currency}. The highlighted row is the company "
+          f"selected in the sidebar.",
+          formats={"Price": "{:,.2f}", "P/E": "{:,.1f}", "Fwd P/E": "{:,.1f}", "P/B": "{:,.2f}",
+                   "EV/EBITDA": "{:,.1f}", "FCF Yield (%)": "{:,.1f}%", "Op Margin (%)": "{:,.1f}%",
+                   "ROE (%)": "{:,.1f}%", "Revenue Growth (%)": "{:+,.1f}%",
+                   "Net Debt/EBITDA": "{:,.2f}", "Market Cap": lambda v: Fmt.money(v, sym)},
+          highlight=co.ticker)
+
+    # A like-for-like profile score. Deliberately built from the quote snapshot
+    # alone (not the full statements) so adding a company to the comparison
+    # costs one request rather than four.
+    prof = pd.DataFrame(index=cmp_df.index)
+    prof["Value"] = [np.nanmean([v for v in (
+        scale(r.get("FCF Yield (%)"), 0, 8), scale(r.get("P/E"), 45, 10),
+        scale(r.get("EV/EBITDA"), 25, 6), scale(r.get("P/B"), 8, 1)) if v is not None] or [np.nan])
+        for _, r in cmp_df.iterrows()]
+    prof["Profitability"] = [np.nanmean([v for v in (
+        scale(r.get("Op Margin (%)"), 0, 30), scale(r.get("ROE (%)"), 0, 25)) if v is not None] or [np.nan])
+        for _, r in cmp_df.iterrows()]
+    prof["Growth"] = [scale(r.get("Revenue Growth (%)"), -5, 25) or np.nan for _, r in cmp_df.iterrows()]
+    prof["Balance sheet"] = [scale(r.get("Net Debt/EBITDA"), 4, 0) or np.nan for _, r in cmp_df.iterrows()]
+    prof["Momentum"] = [scale((returns_12m.get(t, np.nan) or 0) * 100, -30, 40) or np.nan for t in cmp_df.index]
+
+    figp = go.Figure()
+    for t in prof.index:
+        figp.add_trace(go.Bar(name=t, x=prof.columns, y=prof.loc[t].values,
+                              marker_line_width=2 if t == co.ticker else 0,
+                              marker_line_color=T["accent"]))
+    figp.update_yaxes(title_text="Score (0–100)", range=[0, 100])
+    figp.update_layout(barmode="group")
+    style_fig(figp, height=360)
+    figure(figp, "Profile comparison across five dimensions",
+           "Each company scored 0 to 100 on value, profitability, growth, balance-sheet strength and "
+           "twelve-month momentum, using the same thresholds for all of them.",
+           "Read the **shape**, not the total. A company scoring high on value and low on profitability is "
+           "cheap for a reason; one high on both is the rarer case worth understanding. Bars are directly "
+           "comparable because every company is scored on the same scale.",
+           "Scores come from the quote snapshot rather than the full statements, so this is a screen for "
+           "where to look, not a substitute for section 1's deeper scorecard.",
+           data=prof)
+
+    if not closes.empty and closes.shape[1] > 1:
+        corr = closes.pct_change().corr()
+        figcor = go.Figure(go.Heatmap(z=corr.values, x=corr.columns, y=corr.index,
+                                      colorscale="RdBu", zmid=0, zmin=-1, zmax=1,
+                                      text=[[f"{v:.2f}" for v in row] for row in corr.values],
+                                      texttemplate="%{text}", textfont={"size": 12}))
+        style_fig(figcor, height=90 + 46 * len(corr), legend="off")
+        figure(figcor, "Correlation of daily returns",
+               "How closely each pair of companies has moved together over the period shown. 1.00 is "
+               "lockstep, 0 is unrelated, negative means they move against each other.",
+               "High correlation across the whole grid means these names are effectively one bet — owning "
+               "several of them diversifies far less than the count suggests. Look for the lowest pairs if "
+               "diversification is the goal.",
+               "Two businesses can look different and still trade as one position, particularly within a "
+               "single sector or when a shared macro factor dominates.",
+               data=corr)
+
+    best_val = prof["Value"].idxmax() if prof["Value"].notna().any() else None
+    best_prof = prof["Profitability"].idxmax() if prof["Profitability"].notna().any() else None
+    best_growth = prof["Growth"].idxmax() if prof["Growth"].notna().any() else None
+    note(f"""
+Across the {len(cmp_df)} companies compared:
+- **Cheapest on the value measures:** {best_val or Fmt.NA}. **Most profitable:** {best_prof or Fmt.NA}.
+**Fastest growing:** {best_growth or Fmt.NA}.
+- These rarely coincide, and when they do it is usually a signal to check whether one of the inputs is
+distorted by a one-off item rather than a sign of a free lunch.
+- **Comparison is only as good as the set.** Adding a company that does not really belong drags every median
+and every relative judgement with it. Companies in different currencies are converted here, but differences
+in accounting standards and reporting conventions are not adjusted away.
+""", tone="neu")
+
+
+# ==============================================================================
+elif view == "Investment Simulator":
+    section("What an investment would have returned",
+            "Put a sum into this company on a past date and follow what it would be worth now, against the "
+            "same sum put into a benchmark.")
+
+    hist_all = co.history("max", "1d")
+    if hist_all.empty or "Close" not in hist_all:
+        empty_state("No price history available for this symbol.")
+        st.stop()
+
+    px_all = hist_all["Close"].dropna()
+    px_all.index = pd.to_datetime(px_all.index).tz_localize(None)
+    first_day, last_day = px_all.index[0].date(), px_all.index[-1].date()
+
+    i1, i2, i3, i4 = st.columns([1, 1, 1, 1])
+    with i1:
+        amount = st.number_input(f"Initial investment ({sym})", min_value=100.0, value=10000.0, step=500.0)
+    with i2:
+        horizon = segmented("Invested since", ["1y", "3y", "5y", "10y", "Custom"], key="sim_horizon",
+                            default_index=2)
+    with i3:
+        years_map = {"1y": 1, "3y": 3, "5y": 5, "10y": 10}
+        proposed = (datetime.now() - timedelta(days=365 * years_map.get(horizon, 5))).date()
+        default_start = max(first_day, min(proposed, last_day - timedelta(days=5)))
+        start_day = st.date_input("Start date", value=default_start,
+                                  min_value=first_day, max_value=last_day - timedelta(days=1),
+                                  disabled=(horizon != "Custom"))
+        if horizon != "Custom":
+            start_day = default_start
+    with i4:
+        monthly = st.number_input(f"Added every month ({sym})", min_value=0.0, value=0.0, step=100.0,
+                                  help="Set above zero to simulate regular contributions alongside the "
+                                       "initial sum.")
+
+    bench_choice = st.selectbox("Benchmark", ["SPY — S&P 500", "QQQ — Nasdaq 100", "None"], index=0)
+    bench_symbol = bench_choice.split(" ")[0] if bench_choice != "None" else None
+
+    window = px_all[px_all.index >= pd.Timestamp(start_day)] * fx
+    if window.empty or len(window) < 5:
+        empty_state("Not enough price history after that date.",
+                    f"This symbol's history starts on {first_day:%d %b %Y}.")
+        st.stop()
+    if pd.Timestamp(start_day) < px_all.index[0]:
+        st.caption(f"History for {co.ticker} starts on {first_day:%d %b %Y}, so the simulation begins there.")
+
+    def simulate_position(prices: pd.Series, initial: float, monthly_amount: float):
+        """Buys `initial` on the first day, then `monthly_amount` on the first
+        trading day of each subsequent month. Prices are split- and
+        dividend-adjusted by the data source, so this is a total-return
+        simulation with dividends reinvested."""
+        shares = initial / float(prices.iloc[0])
+        invested = initial
+        contributions = pd.Series(0.0, index=prices.index)
+        contributions.iloc[0] = initial
+        if monthly_amount > 0:
+            month_starts = prices.groupby([prices.index.year, prices.index.month]).head(1).index[1:]
+            for d in month_starts:
+                shares += monthly_amount / float(prices.loc[d])
+                invested += monthly_amount
+                contributions.loc[d] += monthly_amount
+        share_path = (contributions / prices).cumsum()
+        return share_path * prices, invested, contributions.cumsum()
+
+    value, invested, cost_path = simulate_position(window, amount, monthly)
+    final = float(value.iloc[-1])
+    years = max((window.index[-1] - window.index[0]).days / 365.25, 1e-9)
+    total_return = final / invested - 1
+    annualised = cagr(invested, final, years)
+    peak = value.cummax()
+    worst_dd = float((value / peak - 1).min())
+
+    bench_value = None
+    if bench_symbol:
+        bh = load_history(bench_symbol, "max", "1d")
+        if not bh.empty and "Close" in bh:
+            bp = bh["Close"].dropna()
+            bp.index = pd.to_datetime(bp.index).tz_localize(None)
+            bp = bp[bp.index >= window.index[0]]
+            bp = bp.reindex(window.index).ffill().bfill()
+            if not bp.empty:
+                bench_value, _, _ = simulate_position(bp, amount, monthly)
+
+    kpi_grid([
+        {"label": "Value today", "value": Fmt.money(final, sym),
+         "sub": f"From {Fmt.money(invested, sym)} invested", "tone": "good" if final > invested else "bad"},
+        {"label": "Profit", "value": Fmt.money(final - invested, sym),
+         "sub": Fmt.as_pct(total_return, signed=True) + " on money in",
+         "tone": "good" if final > invested else "bad"},
+        {"label": "Annualised return", "value": Fmt.as_pct(annualised),
+         "sub": f"Over {years:,.1f} years", "tone": tone_for((annualised or 0) * 100, 8, 0)},
+        {"label": "Deepest fall along the way", "value": Fmt.as_pct(worst_dd),
+         "sub": "Largest drop from a peak while holding", "tone": tone_for(worst_dd * 100, -20, -45),
+         "help": "The return is the destination; this is the journey. It is what would actually have tested "
+                 "your conviction."},
+        {"label": "Benchmark value", "value": Fmt.money(float(bench_value.iloc[-1]) if bench_value is not None else None, sym),
+         "sub": f"Same schedule into {bench_symbol}" if bench_symbol else "No benchmark selected",
+         "tone": ("good" if bench_value is not None and final > float(bench_value.iloc[-1]) else "bad")
+                 if bench_value is not None else "flat"},
+    ], min_width=205)
+
+    figsim = go.Figure()
+    figsim.add_trace(go.Scatter(x=value.index, y=value, name=f"{co.ticker} position",
+                                line=dict(color=T["accent"], width=2.6), fill="tozeroy",
+                                fillcolor=f"rgba(99,102,241,0.10)"))
+    if bench_value is not None:
+        figsim.add_trace(go.Scatter(x=bench_value.index, y=bench_value, name=f"{bench_symbol} benchmark",
+                                    line=dict(color=T["warning"], width=2, dash="dash")))
+    figsim.add_trace(go.Scatter(x=cost_path.index, y=cost_path, name="Money invested",
+                                line=dict(color=T["faint"], width=1.5, dash="dot")))
+    figsim.update_yaxes(title_text=f"Value ({sym})")
+    figsim.update_layout(hovermode="x unified")
+    style_fig(figsim, height=420)
+    figure(figsim, f"Value of the investment since {window.index[0]:%d %b %Y}",
+           f"What {Fmt.money(amount, sym)}"
+           + (f" plus {Fmt.money(monthly, sym)} a month" if monthly else "")
+           + f" put into {co.ticker} would be worth, against the same schedule into a benchmark and against "
+             "the cash actually contributed.",
+           "The dotted line is money in; everything above it is gain. Where the position line dips **below** "
+           "the dotted line, the investment was under water — the periods that matter for whether a strategy "
+           "is one you could actually have stuck with.",
+           "Prices here are adjusted for dividends and splits, so this is a total-return figure: dividends "
+           "are assumed reinvested on the day they are paid.",
+           data=pd.DataFrame({"Position": value, "Invested": cost_path,
+                              **({"Benchmark": bench_value} if bench_value is not None else {})}))
+
+    rolling = value.pct_change(252).dropna()
+    if not rolling.empty:
+        figroll = go.Figure(go.Histogram(x=rolling * 100, nbinsx=45, marker_color=T["accent_soft"], opacity=.85))
+        figroll.add_vline(x=0, line_dash="dash", line_color=T["danger"])
+        figroll.update_xaxes(title_text="Rolling one-year return (%)")
+        figroll.update_yaxes(title_text="Number of days")
+        style_fig(figroll, height=300, legend="off")
+        share_negative = float((rolling < 0).mean())
+        figure(figroll, "Distribution of rolling one-year returns while holding",
+               "Every possible one-year holding period inside this window, and what it returned.",
+               "The share of the distribution left of the dashed line is how often a one-year holder would "
+               "have been down. Here that is **" + Fmt.as_pct(share_negative) + "** of all start dates.",
+               "A single historical path flatters or damns an investment depending on when you happened to "
+               "start. This shows the whole range of entry points instead of the one you picked.")
+
+    excess = None
+    if bench_value is not None:
+        excess = final / float(bench_value.iloc[-1]) - 1
+    note(f"""
+{Fmt.money(invested, sym)} invested {'from ' + window.index[0].strftime('%d %B %Y') if not monthly else 'on this schedule since ' + window.index[0].strftime('%d %B %Y')}
+would be **{Fmt.money(final, sym)}** today — {Fmt.as_pct(total_return, signed=True)} in total, or
+**{Fmt.as_pct(annualised)} a year**.
+- {'That is ' + Fmt.as_pct(excess, signed=True) + ' against the same money in ' + str(bench_symbol) + '. Beating a broad index over one specific window is not evidence of skill; the window matters enormously.' if excess is not None else 'No benchmark was selected, so there is nothing here to say whether the return was good relative to simply owning the market.'}
+- **The drawdown is the real test.** This position fell {Fmt.as_pct(worst_dd)} from its peak at the worst
+point. Returns are only collected by holders who did not sell there.
+- **Past performance is a description, not a forecast.** The single largest determinant of the number above is
+the start date, which is why the rolling distribution matters more than the headline.
+""", tone="pos" if total_return > 0 else "warn")
+
+
+# ==============================================================================
+elif view == "Portfolio":
+    section("Holdings",
+            "Enter what you own. Everything below — allocation drift, concentration limits, and both measures "
+            "of return — is computed from this table and refreshed with live prices. Nothing is stored "
+            "anywhere: the table lives in this browser session only.")
+
+    CATEGORIES = ["Core equity", "International equity", "Fixed income & cash", "Other"]
+    if "portfolio_rows" not in st.session_state:
+        st.session_state.portfolio_rows = pd.DataFrame([
+            {"Ticker": "AAPL", "Shares": 40.0, "Cost per share": 150.0,
+             "Purchased": (datetime.now() - timedelta(days=730)).date(), "Category": "Core equity"},
+            {"Ticker": "MSFT", "Shares": 25.0, "Cost per share": 280.0,
+             "Purchased": (datetime.now() - timedelta(days=500)).date(), "Category": "Core equity"},
+            {"Ticker": "SAP.DE", "Shares": 60.0, "Cost per share": 120.0,
+             "Purchased": (datetime.now() - timedelta(days=400)).date(), "Category": "International equity"},
+        ])
+
+    edited = st.data_editor(
+        st.session_state.portfolio_rows, num_rows="dynamic", key="portfolio_editor",
+        column_config={
+            "Ticker": st.column_config.TextColumn("Ticker", help="Any symbol the data source knows.", width="small"),
+            "Shares": st.column_config.NumberColumn("Shares", min_value=0.0, step=1.0, format="%.4f"),
+            "Cost per share": st.column_config.NumberColumn(
+                f"Cost per share", min_value=0.0, step=1.0, format="%.2f",
+                help="In the security's own currency. Leave at zero to use the closing price on the "
+                     "purchase date."),
+            "Purchased": st.column_config.DateColumn("Purchased", format="YYYY-MM-DD"),
+            "Category": st.column_config.SelectboxColumn("Category", options=CATEGORIES, width="medium"),
+        }, **FILL_DF)
+
+    rows = edited.dropna(subset=["Ticker"]).copy()
+    rows = rows[(rows["Ticker"].astype(str).str.strip() != "") & (rows["Shares"].fillna(0) > 0)]
+    if rows.empty:
+        empty_state("Add at least one holding to see the analysis.",
+                    "Enter a ticker, the number of shares, and the date you bought them.")
+        st.stop()
+    rows["Ticker"] = rows["Ticker"].astype(str).str.upper().str.strip()
+    rows["Category"] = rows["Category"].fillna("Other")
+    rows["Purchased"] = pd.to_datetime(rows["Purchased"]).dt.date
+
+    holdings_key = tuple(
+        (str(t), float(sh), float(c or 0), str(d))
+        for t, sh, c, d in zip(rows["Ticker"], rows["Shares"], rows["Cost per share"].fillna(0), rows["Purchased"]))
+
+    with st.spinner(f"Pricing {len(rows)} holdings…"):
+        quotes = load_comparables(tuple(dict.fromkeys(rows["Ticker"])), target_currency)
+
+    if quotes.empty:
+        empty_state("None of those symbols could be priced right now.")
+        st.stop()
+
+    rows["Price"] = rows["Ticker"].map(quotes["Price"])
+    rows["Value"] = rows["Price"] * rows["Shares"]
+    rows = rows.dropna(subset=["Value"])
+    if rows.empty:
+        empty_state("None of those symbols could be priced right now.")
+        st.stop()
+    total_value = float(rows["Value"].sum())
+    rows["Weight %"] = rows["Value"] / total_value * 100
+    rows["Cost value"] = rows["Cost per share"].fillna(0) * rows["Shares"]
+    rows["Gain %"] = np.where(rows["Cost value"] > 0,
+                              (rows["Value"] / rows["Cost value"] - 1) * 100, np.nan)
+
+    kpi_grid([
+        {"label": "Portfolio value", "value": Fmt.money(total_value, sym),
+         "sub": f"{len(rows)} positions across {rows['Category'].nunique()} categories", "tone": "flat"},
+        {"label": "Largest position", "value": f"{rows.loc[rows['Value'].idxmax(), 'Ticker']}"
+                                               f" · {rows['Weight %'].max():,.1f}%",
+         "sub": Fmt.money(rows["Value"].max(), sym),
+         "tone": "bad" if rows["Weight %"].max() > 25 else "warn" if rows["Weight %"].max() > 15 else "good"},
+        {"label": "Unrealised gain", "value": Fmt.money(
+            float(rows["Value"].sum() - rows["Cost value"].sum()) if (rows["Cost value"] > 0).all() else None, sym),
+         "sub": Fmt.pct(float((rows["Value"].sum() / rows["Cost value"].sum() - 1) * 100), signed=True)
+                if rows["Cost value"].sum() > 0 else "Enter a cost basis to see this",
+         "tone": "good" if rows["Value"].sum() >= rows["Cost value"].sum() else "bad"},
+        {"label": "Effective positions", "value": Fmt.ratio(
+            1 / ((rows["Weight %"] / 100) ** 2).sum(), 1, suffix=""),
+         "sub": "Inverse Herfindahl: how many equal-sized positions this is really equivalent to",
+         "tone": "flat",
+         "help": "A portfolio of ten names where one is 60% behaves like a portfolio of about three."},
+    ], min_width=210)
+
+    holdings_view = rows[["Ticker", "Category", "Shares", "Price", "Value", "Weight %", "Gain %"]].set_index("Ticker")
+    table(holdings_view, "Current holdings",
+          f"Live prices converted to {target_currency}. Gain is against the cost basis entered above.",
+          formats={"Shares": "{:,.4f}", "Price": "{:,.2f}", "Value": lambda v: Fmt.money(v, sym),
+                   "Weight %": "{:,.1f}%", "Gain %": "{:+,.1f}%"})
+
+    # --- Allocation against policy targets -----------------------------------
+    section("Allocation against target",
+            "Policy targets say where the portfolio should sit. Drift says how far it has moved, and where "
+            "new money should go to close the gap without selling anything.")
+
+    t_cols = st.columns(len(CATEGORIES))
+    defaults = {"Core equity": 60, "International equity": 20, "Fixed income & cash": 20, "Other": 0}
+    targets = {}
+    for c, cat in zip(t_cols, CATEGORIES):
+        with c:
+            targets[cat] = st.number_input(f"{cat} target %", 0, 100, defaults[cat], 5, key=f"tgt_{cat}")
+    target_total = sum(targets.values())
+    if target_total != 100:
+        st.warning(f"Targets add up to {target_total}%, not 100%. The drift below is measured against the "
+                   f"targets as entered, so normalise them before acting on it.")
+
+    actual = rows.groupby("Category")["Value"].sum().reindex(CATEGORIES).fillna(0.0)
+    alloc = pd.DataFrame({
+        "Target %": [targets[c] for c in CATEGORIES],
+        "Actual %": (actual / total_value * 100).values,
+        "Value": actual.values,
+    }, index=CATEGORIES)
+    alloc["Drift (pp)"] = alloc["Actual %"] - alloc["Target %"]
+    alloc["To target"] = (alloc["Target %"] / 100 * total_value) - alloc["Value"]
+
+    a1, a2 = st.columns([1.25, 1])
+    with a1:
+        figal = go.Figure()
+        figal.add_trace(go.Bar(x=CATEGORIES, y=alloc["Target %"], name="Target",
+                               marker_color=T["faint"], opacity=.55))
+        figal.add_trace(go.Bar(x=CATEGORIES, y=alloc["Actual %"], name="Actual",
+                               marker_color=T["accent_soft"]))
+        figal.update_yaxes(title_text="% of portfolio", ticksuffix="%")
+        figal.update_layout(barmode="group")
+        style_fig(figal, height=330)
+        figure(figal, "Actual allocation against policy target",
+               "Each category's current share of the portfolio beside the target you set.",
+               "The gap between the pale target bar and the solid actual bar is the drift. Drift builds "
+               "quietly: the category that performs best grows its own weight, so a portfolio left alone "
+               "becomes progressively more concentrated in whatever has already run.",
+               "Rebalancing by directing new contributions at the underweight categories closes drift "
+               "without realising gains, which is the difference between a tax event and a free adjustment.",
+               data=alloc)
+    with a2:
+        new_capital = st.number_input(f"New capital to deploy ({sym})", min_value=0.0, value=10000.0, step=1000.0)
+        shortfall = ((alloc["Target %"] / 100) * (total_value + new_capital) - alloc["Value"]).clip(lower=0)
+        suggestion = (shortfall / shortfall.sum() * new_capital) if shortfall.sum() > 0 else shortfall * 0
+        plan = pd.DataFrame({"Add": suggestion,
+                             "Weight after": ((alloc["Value"] + suggestion) / (total_value + new_capital) * 100)})
+        table(plan, "Where new capital should go",
+              "Directing the new money entirely at underweight categories, with no sales.",
+              formats={"Add": lambda v: Fmt.money(v, sym), "Weight after": "{:,.1f}%"})
+
+    # --- Concentration guardrails --------------------------------------------
+    limit = st.slider("Concentration limit for a single holding (% of portfolio)", 5, 40, 15, 1,
+                      help="Positions above this share of the portfolio are flagged. Single-stock risk is "
+                           "the risk no amount of analysis removes.")
+    breaches = rows[rows["Weight %"] > limit].sort_values("Weight %", ascending=False)
+    checks = []
+    for _, r in rows.sort_values("Weight %", ascending=False).iterrows():
+        state = "fail" if r["Weight %"] > limit else "warn" if r["Weight %"] > limit * 0.75 else "pass"
+        trim = (r["Weight %"] - limit) / 100 * total_value
+        checks.append({
+            "label": f"{r['Ticker']} · {r['Weight %']:,.1f}%",
+            "state": state,
+            "value": Fmt.money(r["Value"], sym),
+            "detail": (f"over the {limit}% limit — trimming {Fmt.money(trim, sym)} would bring it back within"
+                       if state == "fail" else
+                       "approaching the limit; new money is better directed elsewhere" if state == "warn"
+                       else "within the limit"),
+        })
+    checklist(checks)
+    if not breaches.empty:
+        breach_list = ", ".join(f"{t} at {w:,.1f}%" for t, w in zip(breaches["Ticker"], breaches["Weight %"]))
+        note(f"""
+**{len(breaches)} position{'s' if len(breaches) > 1 else ''} exceed{'' if len(breaches) > 1 else 's'} the
+{limit}% limit**: {breach_list}.
+- A single holding above roughly 15% means one company-specific surprise — a failed product, an accounting
+restatement, a regulatory action — can set the whole portfolio back by more than a normal bear market would.
+- The fix does not have to be a sale. Directing every new contribution elsewhere shrinks the weight over time
+without realising a gain, which is usually the cheaper route.
+- Concentration is not automatically wrong; it is a deliberate choice. The question is whether it was chosen or
+simply arrived at because a winner was left to run.
+""", tone="warn")
+
+    # --- Performance ----------------------------------------------------------
+    section("Performance attribution",
+            "Two different questions: how the assets performed, and how your money performed. They differ "
+            "whenever contributions were not evenly timed.")
+
+    with st.spinner("Rebuilding the portfolio's daily history…"):
+        per_ticker, value_series, flows_market, flows_cash = load_portfolio_history(
+            holdings_key, target_currency)
+
+    if value_series is None or value_series.empty:
+        empty_state("Could not rebuild a price history for these holdings.",
+                    "This usually means one of the symbols has no history at the purchase date entered.")
+    else:
+        value_series = value_series[value_series > 0]
+        flows_market = flows_market.reindex(value_series.index).fillna(0.0)
+        flows_cash = flows_cash.reindex(value_series.index).fillna(0.0)
+        days = max((value_series.index[-1] - value_series.index[0]).days, 1)
+        tw = twrr(value_series, flows_market)
+        tw_annual = ((1 + tw) ** (365.0 / days) - 1) if tw is not None and tw > -1 else None
+        cashflows = [(d, -amt) for d, amt in flows_cash[flows_cash > 0].items()]
+        cashflows.append((value_series.index[-1], float(value_series.iloc[-1])))
+        mw = xirr(cashflows)
+        invested_total = float(flows_cash.sum())
+
+        bench_sym = st.selectbox("Benchmark", ["SPY — S&P 500", "QQQ — Nasdaq 100", "None"], index=0,
+                                 key="pf_bench").split(" ")[0]
+        bench_series = None
+        if bench_sym != "None":
+            bh = load_history(bench_sym, "max", "1d")
+            if not bh.empty and "Close" in bh:
+                bp = bh["Close"].dropna()
+                bp.index = pd.to_datetime(bp.index).tz_localize(None)
+                bench_series = bp.reindex(value_series.index).ffill().bfill()
+
+        bench_return = float(bench_series.iloc[-1] / bench_series.iloc[0] - 1) if bench_series is not None else None
+        kpi_grid([
+            {"label": "Time-weighted return", "value": Fmt.as_pct(tw),
+             "sub": f"{Fmt.as_pct(tw_annual)} a year · comparable with an index",
+             "tone": "good" if (tw or 0) > 0 else "bad",
+             "help": "Removes the effect of when money was added, so it measures the holdings themselves. "
+                     "This is what fund performance tables report."},
+            {"label": "Money-weighted return", "value": Fmt.as_pct(mw),
+             "sub": "Annualised internal rate of return on your actual cash",
+             "tone": "good" if (mw or 0) > 0 else "bad",
+             "help": "Your personal return, which rewards or penalises the timing of contributions. If it "
+                     "beats the time-weighted figure, your timing helped."},
+            {"label": "Benchmark over the same window", "value": Fmt.as_pct(bench_return),
+             "sub": f"{bench_sym} total return" if bench_sym != "None" else "No benchmark selected",
+             "tone": ("good" if (tw or 0) > (bench_return or 0) else "bad") if bench_return is not None else "flat"},
+            {"label": "Capital deployed", "value": Fmt.money(invested_total, sym),
+             "sub": f"Valued at {Fmt.money(float(value_series.iloc[-1]), sym)} on the price history used here",
+             "tone": "flat",
+             "help": "This series is rebuilt from daily closing prices, so it can differ slightly from the "
+                     "live quote total above, which uses the latest intraday price."},
+        ], min_width=215)
+
+        figpf = go.Figure()
+        rebased_pf = value_series / value_series.iloc[0] * 100
+        figpf.add_trace(go.Scatter(x=rebased_pf.index, y=rebased_pf, name="Portfolio",
+                                   line=dict(color=T["accent"], width=2.6)))
+        if bench_series is not None:
+            rb = bench_series / bench_series.iloc[0] * 100
+            figpf.add_trace(go.Scatter(x=rb.index, y=rb, name=bench_sym,
+                                       line=dict(color=T["warning"], width=2, dash="dash")))
+        figpf.update_yaxes(title_text="Rebased to 100")
+        figpf.update_layout(hovermode="x unified")
+        style_fig(figpf, height=380)
+        figure(figpf, "Portfolio against benchmark",
+               "The portfolio's value rebased to 100 at the earliest purchase date, beside the benchmark over "
+               "exactly the same window.",
+               "Because the portfolio line includes money added along the way, it is not a pure performance "
+               "line — the time-weighted figure above is. Use this chart for the **shape**: where the two "
+               "diverge, and whether the gap came from one episode or accumulated steadily.",
+               "Beating a benchmark over a window that starts at a date you chose is weak evidence. The value "
+               "is in seeing when the portfolio behaved differently from the market, and asking why.",
+               data=pd.DataFrame({"Portfolio": rebased_pf,
+                                  **({bench_sym: bench_series / bench_series.iloc[0] * 100}
+                                     if bench_series is not None else {})}))
+
+        gap = (tw - mw) if (tw is not None and mw is not None) else None
+        note(f"""
+The holdings returned **{Fmt.as_pct(tw)}** time-weighted over this window, while the money actually invested
+earned **{Fmt.as_pct(mw)}** annualised.
+- **The difference is timing.** {'The money-weighted figure trails the time-weighted one, which means larger contributions went in before weaker stretches.' if (gap or 0) > 0.005 else 'The money-weighted figure leads, which means contributions happened to land before stronger stretches.' if (gap or 0) < -0.005 else 'The two are close, which means contribution timing has had little effect either way.'}
+- **Compare the right one.** Time-weighted is the fair comparison against an index, because an index has no
+contributions. Money-weighted is the honest answer to "how did I do".
+- {'The portfolio ' + ('beat' if (tw or 0) > (bench_return or 0) else 'trailed') + f' {bench_sym} over the same window ({Fmt.as_pct(bench_return)}).' if bench_return is not None else 'No benchmark selected, so there is nothing to say whether this was good or bad in context.'}
+""", tone="pos" if (tw or 0) > (bench_return or 0) else "neu")
+
+    # --- Fundamentals of what is held -----------------------------------------
+    section("What the portfolio owns, fundamentally",
+            "Valuation and quality for every holding, so the portfolio can be judged as a collection of "
+            "businesses rather than a list of tickers.")
+    fund_cols = ["Name", "P/E", "Fwd P/E", "EV/EBITDA", "FCF Yield (%)", "Op Margin (%)",
+                 "ROE (%)", "Net Debt/EBITDA", "Revenue Growth (%)"]
+    fund = quotes[[c for c in fund_cols if c in quotes.columns]].copy()
+    weights = rows.groupby("Ticker")["Value"].sum() / total_value
+    fund.insert(1, "Weight %", (weights.reindex(fund.index) * 100))
+    table(fund, "Holdings on fundamentals",
+          "Weighted by position size, so the metrics that matter most are the ones attached to the largest rows.",
+          formats={"Weight %": "{:,.1f}%", "P/E": "{:,.1f}", "Fwd P/E": "{:,.1f}", "EV/EBITDA": "{:,.1f}",
+                   "FCF Yield (%)": "{:,.1f}%", "Op Margin (%)": "{:,.1f}%", "ROE (%)": "{:,.1f}%",
+                   "Net Debt/EBITDA": "{:,.2f}", "Revenue Growth (%)": "{:+,.1f}%"})
+
+    w = weights.reindex(fund.index).fillna(0)
+    def weighted(colname):
+        if colname not in fund.columns:
+            return None
+        vals = fund[colname]
+        mask = vals.notna() & (w > 0)
+        return float((vals[mask] * w[mask]).sum() / w[mask].sum()) if mask.any() else None
+
+    kpi_grid([
+        {"label": "Weighted P/E", "value": Fmt.ratio(weighted("P/E")),
+         "sub": "Portfolio-level earnings multiple", "tone": "flat"},
+        {"label": "Weighted EV/EBITDA", "value": Fmt.ratio(weighted("EV/EBITDA")),
+         "sub": "Capital-structure neutral", "tone": "flat"},
+        {"label": "Weighted operating margin", "value": Fmt.pct(weighted("Op Margin (%)")),
+         "sub": "Quality of the underlying businesses", "tone": "flat"},
+        {"label": "Weighted revenue growth", "value": Fmt.pct(weighted("Revenue Growth (%)"), signed=True),
+         "sub": "How fast the portfolio's businesses are growing", "tone": "flat"},
+        {"label": "Weighted net debt / EBITDA", "value": Fmt.ratio(weighted("Net Debt/EBITDA")),
+         "sub": "Leverage carried through the holdings", "tone": "flat"},
+    ], min_width=200)
+
+
+# ==============================================================================
 # 9. EXPORT, PROVENANCE & FOOTER  (shared by every data module)
 # ==============================================================================
 
@@ -3829,7 +5085,7 @@ with x1:
                 st.rerun()
         else:
             meta = {
-                "title": f"{co.name} ({co.ticker}) — {module.split('. ', 1)[1]}",
+                "title": f"{co.name} ({co.ticker}) — {view}",
                 "subtitle": (f"{co.sector} · {co.industry} · {market_label(co.ticker)} &nbsp;|&nbsp; "
                              f"Prepared {datetime.now():%d %B %Y %H:%M} &nbsp;|&nbsp; "
                              f"Figures in {target_currency}"
@@ -3841,7 +5097,7 @@ with x1:
             }
             html = REPORT.to_html(meta)
             st.download_button("Download the HTML report", html.encode("utf-8"),
-                               file_name=f"{co.ticker}_{module.split('.')[0]}_report.html",
+                               file_name=f"{co.ticker}_{view.lower().replace(' ', '_')}_report.html",
                                mime="text/html", type="primary", **FILL_DL)
             if st.button("Clear", **FILL_BTN):
                 st.session_state["_export"] = False
