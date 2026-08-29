@@ -674,6 +674,27 @@ def _fetch_info(ticker: str) -> dict:
         return {}
 
 
+def _fetch_fast_info(ticker: str) -> dict:
+    """Yahoo's lightweight quote endpoint, reached through a different route
+    than `.info`. When the heavier endpoint is rate-limited — which happens
+    routinely from shared cloud hosts — this one often still answers."""
+    out = {}
+    try:
+        fast = yf.Ticker(ticker).fast_info
+        for key in ("last_price", "previous_close", "open", "day_high", "day_low",
+                    "market_cap", "shares", "currency", "year_high", "year_low",
+                    "fifty_day_average", "two_hundred_day_average", "ten_day_average_volume"):
+            try:
+                value = fast[key]
+            except Exception:
+                value = getattr(fast, key, None)
+            if value is not None:
+                out[key] = value
+    except Exception:
+        pass
+    return out
+
+
 def _fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
     try:
         df = _retry(lambda: yf.Ticker(ticker).history(period=period, interval=interval))
@@ -700,6 +721,32 @@ def _norm_stmt(df) -> pd.DataFrame:
 @st.cache_data(ttl=900, show_spinner=False)
 def load_info(ticker: str) -> dict:
     return _fetch_info(ticker)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_fast_info(ticker: str) -> dict:
+    return _fetch_fast_info(ticker)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def estimate_beta(ticker: str, benchmark: str = "SPY"):
+    """Beta from two years of daily returns against a broad index, used when the
+    quote endpoint does not report one."""
+    try:
+        a = _fetch_history(ticker, "2y", "1d")
+        b = _fetch_history(benchmark, "2y", "1d")
+        if a.empty or b.empty or "Close" not in a or "Close" not in b:
+            return None
+        ra = a["Close"].pct_change().dropna()
+        rb = b["Close"].pct_change().dropna()
+        joined = pd.concat([ra, rb], axis=1, join="inner").dropna()
+        if len(joined) < 60:
+            return None
+        cov = joined.cov().iloc[0, 1]
+        var = joined.iloc[:, 1].var()
+        return float(cov / var) if var else None
+    except Exception:
+        return None
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -1346,13 +1393,166 @@ def ttm_from_quarters(df_q: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame([tail.sum(min_count=1)], index=[tail.index[-1]])
 
 
+# The metrics a healthy quote response carries. When most of them are absent the
+# quote endpoint has effectively failed, and the app rebuilds them from the
+# financial statements rather than showing a page of dashes.
+QUOTE_METRICS = ("marketCap", "trailingPE", "returnOnEquity", "operatingMargins",
+                 "currentRatio", "totalRevenue", "freeCashflow", "ebitda",
+                 "sharesOutstanding", "bookValue", "trailingEps", "profitMargins")
+
+FAST_INFO_MAP = {
+    "currentPrice": "last_price", "previousClose": "previous_close",
+    "marketCap": "market_cap", "sharesOutstanding": "shares",
+    "fiftyTwoWeekHigh": "year_high", "fiftyTwoWeekLow": "year_low",
+    "fiftyDayAverage": "fifty_day_average",
+    "twoHundredDayAverage": "two_hundred_day_average",
+}
+
+
 class Company:
     """A thin, lazy facade over the cached loaders. Constructing one costs
-    nothing; each statement is fetched the first time it is actually read."""
+    nothing; each statement is fetched the first time it is actually read.
+
+    `info` is not the raw quote response. Yahoo's quote endpoint is rate-limited
+    per source address and regularly returns almost nothing when the app runs on
+    shared cloud infrastructure, while the statement and price endpoints keep
+    answering. So the raw response is topped up from the lightweight quote
+    endpoint and, when it is still threadbare, from the financial statements
+    themselves. Anything filled in this way is recorded in `derived`, and the
+    page says so rather than passing a computed figure off as reported."""
 
     def __init__(self, ticker: str):
         self.ticker = (ticker or "").upper().strip()
-        self.info = load_info(self.ticker) if self.ticker else {}
+        self._raw = load_info(self.ticker) if self.ticker else {}
+        self._fast = load_fast_info(self.ticker) if self.ticker else {}
+        self.derived = set()
+
+    # -- quote assembly ------------------------------------------------------
+    def _base_price(self):
+        """Price without touching `info`, so the enrichment below can use it
+        without recursing back into the property it is building."""
+        for source in (self._raw, self._fast):
+            for key in ("currentPrice", "regularMarketPrice", "previousClose",
+                        "last_price", "previous_close"):
+                v = source.get(key)
+                if _isnum(v) and v > 0:
+                    return float(v)
+        h = load_history(self.ticker, "5d", "1d")
+        if not h.empty and "Close" in h:
+            series = h["Close"].dropna()
+            if not series.empty:
+                return float(series.iloc[-1])
+        return None
+
+    @cached_property
+    def info(self):
+        merged = dict(self._raw)
+        for key, fast_key in FAST_INFO_MAP.items():
+            if not _isnum(merged.get(key)) and _isnum(self._fast.get(fast_key)):
+                merged[key] = float(self._fast[fast_key])
+                self.derived.add(key)
+        if not merged.get("currency") and self._fast.get("currency"):
+            merged["currency"] = self._fast["currency"]
+        self.quote_fields = sum(1 for k in QUOTE_METRICS if _isnum(merged.get(k)))
+        if self.quote_fields < 6:
+            merged = self._rebuild_from_statements(merged)
+        return merged
+
+    def _rebuild_from_statements(self, merged: dict) -> dict:
+        """Recomputes the headline metrics from the reported statements.
+
+        Every value written here is the textbook definition applied to the
+        company's own filings, so it is a reconstruction of the same number the
+        quote endpoint would have returned — not an estimate of something else."""
+        inc, bs, cf = self.annual["inc"], self.annual["bs"], self.annual["cf"]
+        price = self._base_price()
+
+        def put(key, value):
+            if _isnum(value) and not _isnum(merged.get(key)):
+                merged[key] = float(value)
+                self.derived.add(key)
+
+        def latest(df, *names):
+            for n in names:
+                if isinstance(df, pd.DataFrame) and n in df.columns:
+                    series = df[n].dropna()
+                    if not series.empty:
+                        return float(series.iloc[-1])
+            return None
+
+        def prior(df, *names):
+            for n in names:
+                if isinstance(df, pd.DataFrame) and n in df.columns:
+                    series = df[n].dropna()
+                    if len(series) >= 2:
+                        return float(series.iloc[-2])
+            return None
+
+        shares = merged.get("sharesOutstanding")
+        if not _isnum(shares):
+            shares = latest(bs, "Ordinary Shares Number", "Share Issued")
+            put("sharesOutstanding", shares)
+        mcap = merged.get("marketCap")
+        if not _isnum(mcap) and _isnum(price) and _isnum(shares):
+            mcap = price * shares
+            put("marketCap", mcap)
+
+        revenue = latest(inc, "Total Revenue")
+        net_income = latest(inc, "Net Income")
+        gross = latest(inc, "Gross Profit")
+        op_income = latest(inc, "Operating Income", "EBIT")
+        ebitda = latest(inc, "EBITDA")
+        d_and_a = latest(cf, "Depreciation And Amortization")
+        if not _isnum(ebitda) and _isnum(op_income):
+            ebitda = op_income + (d_and_a if _isnum(d_and_a) else 0.0)
+        equity = latest(bs, "Stockholders Equity")
+        assets = latest(bs, "Total Assets")
+        debt = latest(bs, "Total Debt")
+        if not _isnum(debt):
+            lt, st_ = latest(bs, "Long Term Debt"), latest(bs, "Current Debt")
+            debt = (lt if _isnum(lt) else 0.0) + (st_ if _isnum(st_) else 0.0) or None
+        cash = latest(bs, "Cash And Cash Equivalents")
+        cur_assets, cur_liab = latest(bs, "Current Assets"), latest(bs, "Current Liabilities")
+        eps = latest(inc, "Diluted EPS", "Basic EPS")
+        if not _isnum(eps) and _isnum(net_income) and _isnum(shares) and shares:
+            eps = net_income / shares
+        fcf = latest(cf, "Free Cash Flow")
+        if not _isnum(fcf):
+            ocf, capex = latest(cf, "Operating Cash Flow"), latest(cf, "Capital Expenditure")
+            if _isnum(ocf):
+                fcf = ocf + (capex if _isnum(capex) else 0.0)
+
+        put("totalRevenue", revenue)
+        put("ebitda", ebitda)
+        put("totalDebt", debt)
+        put("totalCash", cash)
+        put("freeCashflow", fcf)
+        put("trailingEps", eps)
+        put("grossMargins", safe_div(gross, revenue))
+        put("operatingMargins", safe_div(op_income, revenue))
+        put("profitMargins", safe_div(net_income, revenue))
+        put("returnOnEquity", safe_div(net_income, equity))
+        put("returnOnAssets", safe_div(net_income, assets))
+        put("currentRatio", safe_div(cur_assets, cur_liab))
+        put("bookValue", safe_div(equity, shares))
+        de = safe_div(debt, equity)
+        put("debtToEquity", de * 100 if de is not None else None)   # reported as a percentage
+        put("trailingPE", safe_div(price, eps) if _isnum(eps) and eps > 0 else None)
+        put("priceToBook", safe_div(price, safe_div(equity, shares)))
+        put("priceToSalesTrailing12Months", safe_div(mcap, revenue))
+        if _isnum(mcap):
+            ev = mcap + (debt if _isnum(debt) else 0.0) - (cash if _isnum(cash) else 0.0)
+            put("enterpriseValue", ev)
+            put("enterpriseToEbitda", safe_div(ev, ebitda))
+            put("enterpriseToRevenue", safe_div(ev, revenue))
+        prev_rev, prev_ni = prior(inc, "Total Revenue"), prior(inc, "Net Income")
+        if _isnum(prev_rev) and prev_rev > 0 and _isnum(revenue):
+            put("revenueGrowth", revenue / prev_rev - 1)
+        if _isnum(prev_ni) and prev_ni > 0 and _isnum(net_income):
+            put("earningsGrowth", net_income / prev_ni - 1)
+        if not _isnum(merged.get("beta")):
+            put("beta", estimate_beta(self.ticker))
+        return merged
 
     # -- identity ------------------------------------------------------------
     @property
@@ -2566,6 +2766,23 @@ if _isnum(hi52) and _isnum(lo52) and co.price:
 
 if fx_note:
     st.warning(fx_note)
+
+# Say plainly when the quote endpoint came back thin and the headline metrics
+# had to be rebuilt, rather than presenting computed figures as reported ones.
+quote_fields = getattr(co, "quote_fields", len(QUOTE_METRICS))
+if co.derived:
+    rebuilt = ", ".join(sorted(co.derived)[:8]) + ("…" if len(co.derived) > 8 else "")
+    if quote_fields < 6:
+        st.info(
+            f"Yahoo's quote endpoint returned only {quote_fields} of "
+            f"{len(QUOTE_METRICS)} headline metrics for {co.ticker} — usually rate limiting, which hits "
+            f"shared cloud hosts hardest. The figures below were recomputed from the company's own "
+            f"reported statements and price history instead ({len(co.derived)} fields: {rebuilt}). "
+            f"They follow the standard definitions, but they are calculated here rather than quoted. "
+            f"Use *Refresh market data* in the sidebar to try the quote endpoint again.")
+    else:
+        st.caption(f"{len(co.derived)} metric(s) were not quoted and have been computed from the reported "
+                   f"statements: {rebuilt}.")
 
 
 # --- Shared helpers for the modules ------------------------------------------
@@ -5217,6 +5434,9 @@ with x2:
     with st.expander("Data provenance", expanded=False):
         rows = [
             ("Source", DATA_SOURCE),
+            ("Quote endpoint", f"{quote_fields} of {len(QUOTE_METRICS)} headline metrics returned"),
+            ("Computed locally", f"{len(co.derived)} field(s)" + (f" — {', '.join(sorted(co.derived))}"
+                                                                  if co.derived else "")),
             ("Symbol resolved", f"{co.ticker} · {market_label(co.ticker)}"),
             ("Reporting currency", f"{native_currency} → {target_currency}"
                                    + (f" at {fx:,.4f}" if native_currency != target_currency else "")),
