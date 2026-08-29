@@ -74,6 +74,7 @@ THEMES = {
         "warn_bg": "#fffaeb", "warn_text": "#8a5a05",
         "neu_bg": "#f0f2fc", "neu_text": "#2f2a86",
         "grid": "rgba(20,23,42,0.08)", "shadow": "rgba(16,24,40,0.08)",
+        "ring": "rgba(61,58,176,0.20)",
     },
     "Dark": {
         "bg": "#080b13", "bg_grad": "radial-gradient(circle at 12% -10%, #151c30 0%, #080b13 60%)",
@@ -86,6 +87,7 @@ THEMES = {
         "warn_bg": "#2b2110", "warn_text": "#fcd34d",
         "neu_bg": "#141b2e", "neu_text": "#c3caff",
         "grid": "rgba(238,241,248,0.09)", "shadow": "rgba(0,0,0,0.45)",
+        "ring": "rgba(139,147,248,0.26)",
     },
     "Sepia": {
         "bg": "#f4eee0", "bg_grad": "radial-gradient(circle at 12% -10%, #fbf6ea 0%, #f4eee0 60%)",
@@ -98,6 +100,7 @@ THEMES = {
         "warn_bg": "#f7eeda", "warn_text": "#7d5a12",
         "neu_bg": "#f1e8d9", "neu_text": "#674325",
         "grid": "rgba(56,46,33,0.10)", "shadow": "rgba(80,60,35,0.12)",
+        "ring": "rgba(143,87,48,0.20)",
     },
 }
 
@@ -125,7 +128,7 @@ def _tokens_css(t: dict) -> str:
         "--info": t["info"], "--pos-bg": t["pos_bg"], "--pos-text": t["pos_text"],
         "--neg-bg": t["neg_bg"], "--neg-text": t["neg_text"], "--warn-bg": t["warn_bg"],
         "--warn-text": t["warn_text"], "--neu-bg": t["neu_bg"], "--neu-text": t["neu_text"],
-        "--shadow": t["shadow"],
+        "--shadow": t["shadow"], "--ring": t["ring"],
     }
     return ":root{" + "".join(f"{k}:{v};" for k, v in pairs.items()) + "}"
 
@@ -158,6 +161,7 @@ h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.015em; 
 a { color: var(--accent); }
 hr { border-color: var(--border); }
 [data-testid="stCaptionContainer"] p, .stCaption p { font-size: 13px !important; color: var(--muted) !important; }
+[data-testid="stMarkdownContainer"] { color: var(--text); }
 
 /* ---------- Sidebar ---------- */
 [data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid var(--border); }
@@ -172,14 +176,37 @@ hr { border-color: var(--border); }
 .stButton > button[kind="primary"] { background: linear-gradient(135deg, var(--accent), var(--accent-soft));
     border: none; font-weight: 600; }
 .stButton > button { border-radius: 8px; font-size: 14px; }
-div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
-    background: var(--surface); color: var(--text); border-radius: 8px; font-size: 14px; }
+/* Streamlit's own base theme is light, and this app paints its themes on top in
+   CSS. Form controls have to be re-skinned explicitly or they stay white in the
+   Dark and Sepia themes. */
+/* Streamlit wraps every control in a "…RootElement" that paints the white
+   background; skinning only the inner input leaves that showing through. */
+[data-testid$="RootElement"], [data-testid$="Container"] > div[data-baseweb="input"],
+.stSelectbox div[role="group"], .stMultiSelect div[role="group"],
+.stDateInput div[role="group"], .stNumberInput div[role="group"],
+div[data-baseweb="select"] > div, div[data-baseweb="input"], div[data-baseweb="base-input"],
+.stTextInput input, .stNumberInput input, .stDateInput input, .stTextArea textarea {
+    background-color: var(--surface-alt) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+    border-radius: 8px; font-size: 14px;
+}
+div[data-baseweb="select"] svg { fill: var(--muted); }
+div[data-baseweb="popover"] div[role="listbox"], div[data-baseweb="menu"], ul[role="listbox"] {
+    background-color: var(--surface) !important; color: var(--text) !important;
+    border: 1px solid var(--border);
+}
+div[data-baseweb="menu"] li, ul[role="listbox"] li { color: var(--text) !important; }
+div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
+    background-color: var(--surface-alt) !important;
+}
+[data-testid="stSliderTickBar"], [data-testid="stTickBar"] { color: var(--muted); }
 
 /* ---------- Section headers ---------- */
 .section { display: flex; align-items: baseline; gap: 12px; margin: var(--sec-top) 0 5px; }
 .section-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
     color: var(--accent); background: var(--neu-bg); border-radius: 5px; padding: 3px 8px; letter-spacing: .04em; }
-.section-title { font-size: 19.5px; font-weight: 700; letter-spacing: -0.015em; }
+.section-title { color: var(--text);  font-size: 19.5px; font-weight: 700; letter-spacing: -0.015em; }
 .section-rule { height: 1px; background: var(--border); flex: 1; margin-bottom: 4px; }
 .section-sub { font-size: 14px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 105ch; }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
@@ -188,7 +215,7 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: var(--card-pad); box-shadow: 0 1px 2px var(--shadow); }
 .card + .card { margin-top: var(--gap); }
-.card-title { font-size: 15px; font-weight: 700; margin: 0 0 7px; }
+.card-title { color: var(--text);  font-size: 15px; font-weight: 700; margin: 0 0 7px; }
 .card-body { font-size: 14.5px; line-height: 1.65; color: var(--text); }
 .card-meta { font-size: 13px; color: var(--muted); }
 
@@ -205,7 +232,7 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
 .kpi.flat::before { background: var(--accent); }
 .kpi-label { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-.kpi-value { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
+.kpi-value { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
     font-size: var(--fs-kpi); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
 .kpi-sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
 .kpi-delta { font-size: 13px; font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; }
@@ -237,7 +264,7 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
     color: var(--faint); padding-top: 3px; }
 
 /* ---------- Header ---------- */
-.hdr-name { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
+.hdr-name { color: var(--text);  font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
 .hdr-meta { font-size: 13.5px; color: var(--muted); margin-top: 7px; }
 .hdr-chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 5px;
     background: var(--surface-sunk); color: var(--muted); margin: 0 6px 4px 0; }
@@ -263,7 +290,7 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
 .score-name { font-size: 13px; color: var(--muted); font-weight: 500; }
 .score-track { height: 8px; border-radius: 4px; background: var(--surface-sunk); overflow: hidden; }
 .score-fill { height: 100%; border-radius: 4px; }
-.score-val { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; text-align: right; }
+.score-val { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; text-align: right; }
 .verdict { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .verdict-score { font-family: 'IBM Plex Mono', monospace; font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
 .verdict-band { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
@@ -274,13 +301,13 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
     font-size: 13.8px; line-height: 1.55; }
 .chk-mark { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; text-align: center; }
 .chk-pass { color: var(--success); } .chk-fail { color: var(--danger); } .chk-warn { color: var(--warning); } .chk-na { color: var(--faint); }
-.chk-label { font-weight: 600; } .chk-detail { color: var(--muted); }
+.chk-label { color: var(--text);  font-weight: 600; } .chk-detail { color: var(--muted); }
 
 /* ---------- Definition blocks (line-item deep dive) ---------- */
 .defn { border-left: 3px solid var(--accent); background: var(--surface); border: 1px solid var(--border);
     border-left-width: 3px; border-radius: 9px; padding: 14px 16px; margin-bottom: 10px; }
 .defn-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.defn-name { font-size: 15px; font-weight: 700; }
+.defn-name { color: var(--text);  font-size: 15px; font-weight: 700; }
 .defn-val { font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: var(--accent); }
 .defn-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; margin-top: 9px;
     font-size: 13.8px; line-height: 1.6; }
@@ -302,12 +329,80 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
 /* ---------- News list ---------- */
 .news { border-bottom: 1px solid var(--border); padding: 10px 0; }
 .news:last-child { border-bottom: none; }
-.news-t { font-size: 14.5px; line-height: 1.5; font-weight: 500; }
+.news-t { color: var(--text);  font-size: 14.5px; line-height: 1.5; font-weight: 500; }
 .news-m { font-size: 12px; color: var(--faint); margin-top: 4px; }
 
 /* ---------- Footer ---------- */
 .foot { border-top: 1px solid var(--border); margin-top: 36px; padding: 16px 0 6px;
     font-size: 12.5px; color: var(--faint); line-height: 1.7; }
+
+
+/* ---------- Floating sidebar panel ---------- */
+[data-testid="stSidebar"] { background: transparent; border-right: none; }
+[data-testid="stSidebarContent"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin: 10px 6px 10px 10px;
+    box-shadow: 0 12px 32px var(--shadow);
+}
+[data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; }
+[data-testid="stSidebarUserContent"] { padding-top: .35rem; }
+
+/* ---------- Module navigator: visible tabs, not a dropdown ---------- */
+.st-key-module, .st-key-module [data-testid="stRadio"] { width: 100% !important; }
+.st-key-module div[role="radiogroup"] { display: flex; flex-direction: column;
+    gap: 5px; align-items: stretch; width: 100%; }
+.st-key-module [data-testid="stRadioOption"] { width: 100%; }
+/* hide the radio dot; the card itself carries the selected state */
+.st-key-module [data-testid="stRadioOption"] > div > div > div:first-child { display: none; }
+.st-key-module [data-testid="stRadioOption"] {
+    position: relative;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 12px 9px 13px;
+    background: var(--surface-alt);
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease,
+                opacity .16s ease, background-color .16s ease;
+}
+.st-key-module [data-testid="stRadioOption"] p {
+    font-size: 13.5px !important; font-weight: 600; margin: 0;
+    color: var(--muted) !important; letter-spacing: .005em;
+}
+/* hover: a grey outline and a slight lift */
+.st-key-module [data-testid="stRadioOption"]:hover {
+    border-color: var(--border);
+    background: var(--surface);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+.st-key-module [data-testid="stRadioOption"]:hover p { color: var(--text) !important; }
+/* selected: bright accent border, a ring, and a left marker */
+.st-key-module [data-testid="stRadioOption"]:has(input:checked) {
+    background: var(--neu-bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--ring), 0 8px 20px var(--shadow);
+    transform: translateY(-1px);
+}
+.st-key-module [data-testid="stRadioOption"]:has(input:checked) p {
+    color: var(--accent) !important; font-weight: 700;
+}
+.st-key-module [data-testid="stRadioOption"]:has(input:checked)::before {
+    content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px;
+    background: var(--accent); border-radius: 0 3px 3px 0;
+}
+.st-key-module [data-testid="stRadioOption"]:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+}
+/* Dim the unselected entries only where :has() can actually mark the selected
+   one, so a browser without :has() shows every entry at full strength rather
+   than a uniformly greyed-out list. */
+@supports selector(:has(*)) {
+    .st-key-module [data-testid="stRadioOption"] { opacity: .62; }
+    .st-key-module [data-testid="stRadioOption"]:hover { opacity: .9; }
+    .st-key-module [data-testid="stRadioOption"]:has(input:checked) { opacity: 1; }
+}
 
 /* ---------- Mobile ---------- */
 @media (max-width: 780px) {
@@ -2309,7 +2404,10 @@ with st.sidebar:
     ticker = symbol if (suffix == "MANUAL" or "." in symbol) else f"{symbol}{suffix}"
 
     st.markdown("<div class='side-group'>View</div>", unsafe_allow_html=True)
-    module = st.selectbox("Module", MODULE_LABELS, key="module", label_visibility="collapsed")
+    # A visible list rather than a dropdown: the whole map of the terminal stays
+    # on screen, so switching view is one click and the reader can see what else
+    # is available without opening anything.
+    module = st.radio("Module", MODULE_LABELS, key="module", label_visibility="collapsed")
     view = NAME_BY_LABEL[module]
     st.caption(MODULE_HELP[module])
 
