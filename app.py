@@ -878,13 +878,97 @@ SECTOR_ETF_MAP = {
     "Real Estate": "XLRE", "Basic Materials": "XLB",
 }
 
+# Yahoo's exchange suffixes. This is a mapping of *venues*, not of companies:
+# no company list is bundled with the app, so any symbol on any of these markets
+# resolves live.
 EXCHANGE_LABELS = {
-    "": "United States", "DE": "Germany (Xetra)", "VN": "Vietnam (HOSE)", "L": "United Kingdom (LSE)",
-    "T": "Japan (Tokyo)", "SS": "China (Shanghai)", "HK": "Hong Kong", "SW": "Switzerland",
-    "PA": "France (Euronext)", "MI": "Italy (Borsa)", "AS": "Netherlands", "TO": "Canada (TSX)",
-    "AX": "Australia (ASX)", "KS": "South Korea (KRX)", "TW": "Taiwan", "SI": "Singapore",
-    "MC": "Spain (BME)", "ST": "Sweden", "OL": "Norway", "BR": "Belgium",
+    "": "United States", "VN": "Vietnam (HOSE/HNX)", "DE": "Germany (Xetra)",
+    "F": "Germany (Frankfurt)", "L": "United Kingdom (LSE)", "IL": "London (intl)",
+    "T": "Japan (Tokyo)", "SS": "China (Shanghai)", "SZ": "China (Shenzhen)",
+    "HK": "Hong Kong", "TW": "Taiwan", "TWO": "Taiwan (OTC)", "KS": "South Korea (KOSPI)",
+    "KQ": "South Korea (KOSDAQ)", "NS": "India (NSE)", "BO": "India (BSE)",
+    "SI": "Singapore", "AX": "Australia (ASX)", "NZ": "New Zealand",
+    "TO": "Canada (TSX)", "V": "Canada (TSXV)", "NE": "Canada (NEO)",
+    "SW": "Switzerland (SIX)", "PA": "France (Euronext Paris)",
+    "AS": "Netherlands (Euronext)", "BR": "Belgium (Euronext)",
+    "LS": "Portugal (Euronext)", "MI": "Italy (Borsa Italiana)",
+    "MC": "Spain (BME)", "VI": "Austria (Wiener Börse)", "IR": "Ireland (Euronext)",
+    "ST": "Sweden (Nasdaq Stockholm)", "OL": "Norway (Oslo Børs)",
+    "CO": "Denmark (Nasdaq Copenhagen)", "HE": "Finland (Nasdaq Helsinki)",
+    "IC": "Iceland", "WA": "Poland (GPW)", "PR": "Czechia (PSE)",
+    "IS": "Türkiye (Borsa Istanbul)", "TA": "Israel (TASE)", "SR": "Saudi Arabia (Tadawul)",
+    "QA": "Qatar", "AE": "UAE (Abu Dhabi)", "CA": "Egypt (EGX)", "JO": "South Africa (JSE)",
+    "SA": "Brazil (B3)", "MX": "Mexico (BMV)", "BA": "Argentina (BYMA)",
+    "SN": "Chile (Santiago)", "CN": "Canada (CSE)", "BK": "Thailand (SET)",
+    "JK": "Indonesia (IDX)", "KL": "Malaysia (Bursa)", "PS": "Philippines (PSE)",
+    "AT": "Greece (ATHEX)", "BD": "Hungary (BSE)", "RG": "Latvia", "TL": "Estonia",
 }
+MARKET_SUFFIXES = tuple(f".{k}" for k in EXCHANGE_LABELS if k)
+
+# Where each market's own audited filings actually live. Yahoo carries a
+# normalised summary; these are the primary sources to verify a number against,
+# with the filing rhythm that market runs on.
+FILING_SOURCES = {
+    "": {"name": "SEC EDGAR",
+         "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&ticker={base}&type=10-K&dateb=&owner=include&count=40",
+         "rhythm": "Annual report on Form 10-K and quarterly reports on Form 10-Q, plus 8-K for material events. Full text is free and searchable."},
+    "VN": {"name": "HOSE disclosure and Vietstock",
+           "url": "https://finance.vietstock.vn/{base}/tai-chinh.htm",
+           "rhythm": "Báo cáo tài chính quý (unaudited quarterly), a reviewed half-year report, and an audited annual report, filed with the State Securities Commission and the exchange. Quarterly statements are typically due within 20 days of quarter end (30 for consolidated), the reviewed half-year within 45 days, and the audited annual within 90 days. Vietnamese issuers report in VND under Vietnamese Accounting Standards, which differ from IFRS in several places — treat cross-border comparisons of margins and equity with care."},
+    "DE": {"name": "Bundesanzeiger and company IR",
+           "url": "https://www.bundesanzeiger.de/pub/en/suchen?4",
+           "rhythm": "Annual and half-year financial reports; Prime Standard issuers also publish quarterly statements. Filings are in German and often English on the company's own investor-relations pages."},
+    "L": {"name": "FCA National Storage Mechanism / RNS",
+          "url": "https://data.fca.org.uk/#/nsm/nationalstoragemechanism",
+          "rhythm": "Annual report and a half-year report. Quarterly reporting has not been mandatory in the UK since 2014, so many companies publish trading updates instead of full quarterly accounts."},
+    "T": {"name": "EDINET and TDnet",
+          "url": "https://disclosure2.edinet-fsa.go.jp/",
+          "rhythm": "Quarterly earnings summaries (kessan tanshin) through TDnet and the annual securities report (yūkashōken hōkokusho) through EDINET. Many filings are Japanese-only; larger issuers publish English summaries."},
+    "SS": {"name": "Shanghai Stock Exchange / CNINFO",
+           "url": "http://www.cninfo.com.cn/new/index",
+           "rhythm": "Quarterly, half-year and annual reports are all mandatory. Filings are in Chinese; annual reports are audited under Chinese Accounting Standards."},
+    "SZ": {"name": "Shenzhen Stock Exchange / CNINFO",
+           "url": "http://www.cninfo.com.cn/new/index",
+           "rhythm": "Quarterly, half-year and annual reports are all mandatory, filed in Chinese."},
+    "HK": {"name": "HKEXnews",
+           "url": "https://www.hkexnews.hk/",
+           "rhythm": "Interim and annual reports are required; quarterly reporting is voluntary on the Main Board. Filings are published in both English and Chinese."},
+    "KS": {"name": "DART (Financial Supervisory Service)",
+           "url": "https://engdart.fss.or.kr/",
+           "rhythm": "Quarterly, half-year and annual reports. English summaries are available through the English DART portal."},
+    "TW": {"name": "MOPS (Market Observation Post System)",
+           "url": "https://mops.twse.com.tw/mops/web/index",
+           "rhythm": "Monthly revenue announcements plus quarterly and annual financial reports — the monthly revenue disclosure is unusual and useful."},
+    "NS": {"name": "NSE India / BSE",
+           "url": "https://www.nseindia.com/companies-listing/corporate-filings-financial-results",
+           "rhythm": "Quarterly results and an audited annual report; Indian issuers also publish detailed shareholding patterns each quarter."},
+    "AX": {"name": "ASX announcements",
+           "url": "https://www.asx.com.au/markets/company/{base}",
+           "rhythm": "Half-year and annual reports, plus quarterly cash-flow reports (Appendix 4C/5B) for smaller and pre-revenue companies."},
+    "TO": {"name": "SEDAR+",
+           "url": "https://www.sedarplus.ca/",
+           "rhythm": "Quarterly and annual filings, including the MD&A, which is where Canadian issuers explain the numbers."},
+    "SI": {"name": "SGX company announcements",
+           "url": "https://www.sgx.com/securities/company-announcements",
+           "rhythm": "Half-year and annual results; quarterly reporting is required only for companies flagged by the exchange."},
+    "SW": {"name": "SIX Exchange regulation",
+           "url": "https://www.six-exchange-regulation.com/en/home/publications/official-notices.html",
+           "rhythm": "Annual and half-year reports under IFRS or Swiss GAAP FER."},
+}
+FILING_SOURCE_DEFAULT = {
+    "name": "the company's own investor-relations pages",
+    "url": "",
+    "rhythm": "Reporting frequency and deadlines vary by market. The company's investor-relations site and its exchange's disclosure portal are the authoritative sources.",
+}
+
+
+def filing_source(ticker: str) -> dict:
+    """The primary filing source for a symbol's market, with the ticker filled in."""
+    suffix = ticker.split(".")[-1].upper() if ticker and "." in ticker else ""
+    base = ticker.split(".")[0] if ticker else ""
+    src = dict(FILING_SOURCES.get(suffix, FILING_SOURCE_DEFAULT))
+    src["url"] = src["url"].replace("{base}", base) if src.get("url") else ""
+    return src
 
 
 def market_label(ticker: str) -> str:
@@ -970,34 +1054,144 @@ def time_ago(dt):
 
 # --- Discovery --------------------------------------------------------------
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def search_ticker(query: str, max_results: int = 8):
-    """Live query against Yahoo's own search index rather than a bundled lookup
-    table, which would go stale on renames, delistings and new listings."""
+# Yahoo exposes several different search routes, and they fail independently:
+# the raw JSON endpoint needs a cookie and crumb that expire, while yfinance's
+# own Search and Lookup classes negotiate those for you. Any one of them can be
+# rate-limited at a given moment, so all of them are tried in turn before the
+# app tells a user their company does not exist.
+
+ACCEPTED_QUOTE_TYPES = ("EQUITY", "ETF", "INDEX", "MUTUALFUND")
+
+
+def _norm_hit(symbol, name, exchange, qtype):
+    symbol = str(symbol or "").strip().upper()
+    if not symbol:
+        return None
+    return {"symbol": symbol, "name": str(name or symbol).strip(),
+            "exchange": str(exchange or "").strip(), "type": str(qtype or "").upper()}
+
+
+def _search_via_yf_search(query, max_results):
+    try:
+        quotes = yf.Search(query, max_results=max_results, news_count=0, lists_count=0,
+                           enable_fuzzy_query=True, raise_errors=False).quotes or []
+    except Exception as exc:
+        note_error("search (yf.Search)", exc)
+        return []
+    out = []
+    for q in quotes:
+        if not isinstance(q, dict):
+            continue
+        hit = _norm_hit(q.get("symbol"),
+                        q.get("shortname") or q.get("longname"),
+                        q.get("exchDisp") or q.get("exchange"),
+                        q.get("quoteType"))
+        if hit and (not hit["type"] or hit["type"] in ACCEPTED_QUOTE_TYPES):
+            out.append(hit)
+    return out
+
+
+def _search_via_yf_lookup(query, max_results):
+    """`Lookup` searches Yahoo's instrument directory directly and reaches
+    listings the fuzzy search sometimes misses, particularly outside the US."""
+    try:
+        lookup = yf.Lookup(query, raise_errors=False)
+    except Exception as exc:
+        note_error("search (yf.Lookup)", exc)
+        return []
+    out = []
+    for getter, qtype in (("get_stock", "EQUITY"), ("get_etf", "ETF"), ("get_index", "INDEX")):
+        try:
+            df = getattr(lookup, getter)(count=max_results)
+        except Exception:
+            continue
+        if not isinstance(df, pd.DataFrame) or df.empty:
+            continue
+        for symbol, row in df.iterrows():
+            hit = _norm_hit(row.get("symbol", symbol),
+                            row.get("shortName") or row.get("longName") or row.get("name"),
+                            row.get("exchange") or row.get("exchDisp"),
+                            row.get("quoteType") or qtype)
+            if hit:
+                out.append(hit)
+    return out
+
+
+def _search_via_endpoint(query, max_results):
+    for host in ("query2", "query1"):
+        try:
+            params = urllib.parse.urlencode({
+                "q": query, "quotesCount": max_results, "newsCount": 0,
+                "listsCount": 0, "enableFuzzyQuery": True,
+            })
+            url = f"https://{host}.finance.yahoo.com/v1/finance/search?{params}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            out = []
+            for q in data.get("quotes", []):
+                hit = _norm_hit(q.get("symbol"), q.get("shortname") or q.get("longname"),
+                                q.get("exchange") or q.get("exchDisp"), q.get("quoteType"))
+                if hit and (not hit["type"] or hit["type"] in ACCEPTED_QUOTE_TYPES):
+                    out.append(hit)
+            if out:
+                return out
+        except Exception as exc:
+            note_error(f"search ({host})", exc)
+    return []
+
+
+def _probe_as_symbol(query, suffixes):
+    """Last resort: treat the query as a symbol and check it against every
+    market suffix at once. This is what rescues a search when Yahoo's search
+    routes are all throttled but the quote route still answers."""
+    base = query.strip().upper().replace(" ", "")
+    if not (1 < len(base) <= 12) or not re.fullmatch(r"[A-Z0-9.\-]+", base):
+        return []
+    candidates = [base] if "." in base else [base] + [f"{base}{sfx}" for sfx in suffixes if sfx]
+
+    def check(sym):
+        fast = _fetch_fast_info(sym)
+        if _isnum(fast.get("last_price")):
+            return _norm_hit(sym, sym, fast.get("currency", ""), "EQUITY")
+        hist = _fetch_history(sym, "5d", "1d")
+        if not hist.empty and "Close" in hist and hist["Close"].dropna().size:
+            return _norm_hit(sym, sym, "", "EQUITY")
+        return None
+
+    return [h for h in parallel_map(check, candidates[:14]) if h]
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def search_ticker(query: str, max_results: int = 12):
+    """Resolves a company name, or a partial symbol, to tradable symbols.
+
+    Always live: nothing about the company universe is bundled with this app,
+    because listings, renames and delistings change constantly. Four independent
+    routes are tried in order and their results merged, so one throttled
+    endpoint does not make a real company look nonexistent."""
     query = (query or "").strip()
     if len(query) < 2:
         return []
-    try:
-        params = urllib.parse.urlencode({
-            "q": query, "quotesCount": max_results, "newsCount": 0,
-            "listsCount": 0, "enableFuzzyQuery": True,
-        })
-        url = f"https://query2.finance.yahoo.com/v1/finance/search?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        results = []
-        for q in data.get("quotes", []):
-            symbol, qtype = q.get("symbol"), q.get("quoteType", "")
-            if symbol and qtype in ("EQUITY", "ETF"):
-                results.append({
-                    "symbol": symbol,
-                    "name": q.get("shortname") or q.get("longname") or symbol,
-                    "exchange": q.get("exchange") or q.get("exchDisp") or "",
-                })
-        return results
-    except Exception:
-        return []
+    results, seen = [], set()
+    for route in (_search_via_yf_search, _search_via_yf_lookup, _search_via_endpoint):
+        try:
+            hits = route(query, max_results)
+        except Exception as exc:
+            note_error(f"search route {route.__name__}", exc)
+            hits = []
+        for h in hits:
+            if h["symbol"] not in seen:
+                seen.add(h["symbol"])
+                results.append(h)
+        if len(results) >= max_results:
+            return results[:max_results]
+    if not results:
+        for h in _probe_as_symbol(query, list(MARKET_SUFFIXES)):
+            if h["symbol"] not in seen:
+                seen.add(h["symbol"])
+                results.append(h)
+    return results[:max_results]
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -1899,6 +2093,90 @@ class Valuation:
         return wacc, cost_equity, w_e, w_d
 
 
+# --- Forecasting -------------------------------------------------------------
+
+def build_forecast(close: pd.Series, horizon: int = 60):
+    """Three independent forward projections of a price series.
+
+    They are deliberately different in kind, because agreement between methods
+    that share no assumptions is the only weak evidence a price forecast can
+    offer, and disagreement is the honest signal that the future is open:
+
+      * a log-linear trend fitted to the whole window, with a statistical
+        prediction interval — the "if the last N days continue" case;
+      * Holt's damped linear trend, which weights recent observations far more
+        heavily and lets the trend decay rather than extrapolate forever;
+      * a geometric random walk cone built from the series' own drift and
+        volatility, which describes the range rather than a path.
+    """
+    close = close.dropna()
+    if len(close) < 30 or horizon < 1:
+        return None
+    y = np.log(close.values.astype(float))
+    n = len(y)
+    x = np.arange(n, dtype=float)
+    slope, intercept = np.polyfit(x, y, 1)
+    resid = y - (slope * x + intercept)
+    sigma = float(resid.std(ddof=2)) if n > 2 else float(resid.std())
+    sxx = float(((x - x.mean()) ** 2).sum()) or 1.0
+
+    future_x = np.arange(n, n + horizon, dtype=float)
+    trend = np.exp(slope * future_x + intercept)
+    se = sigma * np.sqrt(1.0 + 1.0 / n + ((future_x - x.mean()) ** 2) / sxx)
+    trend_lo, trend_hi = np.exp(np.log(trend) - 1.96 * se), np.exp(np.log(trend) + 1.96 * se)
+
+    holt_path = None
+    try:
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing
+        fit = ExponentialSmoothing(close.values.astype(float), trend="add",
+                                   damped_trend=True, initialization_method="estimated").fit()
+        holt_path = np.asarray(fit.forecast(horizon), dtype=float)
+    except Exception:
+        holt_path = None
+
+    log_ret = np.diff(y)
+    mu, sd = float(log_ret.mean()), float(log_ret.std())
+    steps = np.arange(1, horizon + 1, dtype=float)
+    last = float(close.iloc[-1])
+    mc_mid = last * np.exp(mu * steps)
+    mc_lo = last * np.exp(mu * steps - 1.645 * sd * np.sqrt(steps))
+    mc_hi = last * np.exp(mu * steps + 1.645 * sd * np.sqrt(steps))
+
+    last_date = pd.Timestamp(close.index[-1])
+    future_index = pd.bdate_range(last_date + pd.Timedelta(days=1), periods=horizon)
+    out = pd.DataFrame({"Trend": trend, "Trend low": trend_lo, "Trend high": trend_hi,
+                        "Random-walk median": mc_mid, "Random-walk 5%": mc_lo,
+                        "Random-walk 95%": mc_hi}, index=future_index)
+    if holt_path is not None and len(holt_path) == horizon:
+        out["Damped trend"] = holt_path
+    out.attrs["annual_drift"] = float(np.expm1(mu * 252))
+    out.attrs["annual_vol"] = float(sd * np.sqrt(252))
+    out.attrs["r_squared"] = float(1 - (resid ** 2).sum() / ((y - y.mean()) ** 2).sum()) if n > 2 else None
+    return out
+
+
+def detect_shocks(close: pd.Series, z_threshold: float = 2.5, max_events: int = 8):
+    """Days whose move is a statistical outlier for this series.
+
+    Picked by standardised return rather than a fixed percentage, so the
+    threshold adapts to how volatile the stock actually is: a 4% day is
+    unremarkable for one name and a shock for another."""
+    close = close.dropna()
+    if len(close) < 40:
+        return pd.DataFrame()
+    ret = close.pct_change().dropna()
+    sd = ret.std()
+    if not sd:
+        return pd.DataFrame()
+    z = (ret - ret.mean()) / sd
+    hits = z[z.abs() >= z_threshold]
+    if hits.empty:
+        return pd.DataFrame()
+    frame = pd.DataFrame({"Move %": ret.loc[hits.index] * 100, "Sigma": hits})
+    frame = frame.reindex(frame["Sigma"].abs().sort_values(ascending=False).index).head(max_events)
+    return frame.sort_index()
+
+
 # --- Portfolio return engines ------------------------------------------------
 
 def xirr(cashflows):
@@ -2547,6 +2825,9 @@ MODULES = [
     ("Technical Analysis", "Price action, trend, momentum and volatility."),
     ("Financial Statements", "Reported figures, line-by-line explanations and industry-relative common size."),
     ("Cash Flow Quality", "Whether reported profit actually converts into cash."),
+    ("Capital Allocation", "Return on invested capital against the cost of it, and where the cash went."),
+    ("Solvency & Debt", "Maturity profile, leverage, interest cover and a refinancing stress test."),
+    ("Dilution & Owner Earnings", "Share-count creep and free cash flow after the cost of paying people in stock."),
     ("Intrinsic Valuation", "Three-phase DCF, reverse DCF, scenarios and sensitivity."),
     ("Peer Comparables", "Relative valuation against live-matched industry peers."),
     ("Compare Companies", "Two or more companies side by side on price, quality, valuation and growth."),
@@ -2562,11 +2843,13 @@ NAME_BY_LABEL = dict(zip(MODULE_LABELS, [n for n, _ in MODULES]))
 MODULE_HELP = {f"{i:02d}. {n}": h for i, (n, h) in enumerate(MODULES)}
 
 
-MARKETS = {
-    "United States": "", "Germany (Xetra)": ".DE", "Vietnam (HOSE)": ".VN",
-    "United Kingdom (LSE)": ".L", "Japan (Tokyo)": ".T", "China (Shanghai)": ".SS",
-    "Other / enter full symbol": "MANUAL",
-}
+# Built from the exchange map, so every venue yfinance can reach is selectable.
+_MARKET_ORDER = ["", "VN", "DE", "L", "T", "HK", "SS", "SZ", "TW", "KS", "NS", "SI",
+                 "AX", "TO", "SW", "PA", "AS", "MI", "MC", "ST", "OL", "CO", "HE",
+                 "BR", "IR", "VI", "LS", "WA", "IS", "TA", "SR", "SA", "MX", "BK",
+                 "JK", "KL", "PS", "AT", "NZ", "JO", "BO", "KQ", "TWO", "F", "V"]
+MARKETS = {EXCHANGE_LABELS[k]: (f".{k}" if k else "") for k in _MARKET_ORDER if k in EXCHANGE_LABELS}
+MARKETS["Other / enter full symbol"] = "MANUAL"
 SUFFIX_TO_MARKET = {v: k for k, v in MARKETS.items() if v != "MANUAL"}
 
 PERIODS = {"5 days": "5d", "1 month": "1mo", "3 months": "3mo", "6 months": "6mo",
@@ -2595,9 +2878,13 @@ with st.sidebar:
         q = st.text_input("Company name", placeholder="Siemens, Toyota, Vietcombank…",
                           key="name_search_query", label_visibility="collapsed")
         if q.strip():
-            results = search_ticker(q)
+            with st.spinner("Searching every market…"):
+                results = search_ticker(q)
             if results:
-                opts = {f"{r['symbol']} · {r['name']} ({r['exchange']})": r["symbol"] for r in results}
+                def _fmt(r):
+                    venue = r["exchange"] or market_label(r["symbol"])
+                    return f"{r['symbol']} · {r['name']} ({venue})"
+                opts = {_fmt(r): r["symbol"] for r in results}
                 picked = st.selectbox("Match", list(opts.keys()), key="name_search_pick",
                                       label_visibility="collapsed")
                 if st.button("Use this ticker", type="primary", **FILL_BTN):
@@ -2607,8 +2894,12 @@ with st.sidebar:
                     st.session_state["ticker_symbol_input"] = sym
                     st.rerun()
             else:
-                st.caption("No matches on Yahoo Finance. Try another spelling, or type the symbol directly.")
-        st.caption("Live search against Yahoo's own index, not a bundled list, so it stays correct as symbols change.")
+                st.caption("Nothing came back for that. Yahoo's search routes are rate-limited from shared "
+                           "hosting and sometimes return nothing for a company that does exist — try again, "
+                           "or type the symbol with its market suffix directly (Vinamilk is VNM.VN, "
+                           "Siemens is SIE.DE, Toyota is 7203.T).")
+        st.caption("Searched live across four Yahoo routes covering every listed market. No company list is "
+                   "bundled with this app, so renames, new listings and delistings are picked up immediately.")
 
     market = st.selectbox("Market", list(MARKETS.keys()), key="market_select")
     suffix = MARKETS[market]
@@ -3367,6 +3658,90 @@ elif view == "Technical Analysis":
            "a view on value from the other sections.",
            data=hist[[c for c in ("Close", "SMA_50", "SMA_200", "RSI") if c in hist.columns]])
 
+    # --- Forecast --------------------------------------------------------------
+    section("Forecast",
+            "Three projections built on different assumptions. Where they agree there is weak evidence; "
+            "where they disagree, that spread is the honest answer.")
+
+    fc1, fc2 = st.columns([1, 3])
+    with fc1:
+        horizon = st.select_slider("Horizon (trading days)", [20, 40, 60, 120, 250], value=60,
+                                   format_func=lambda d: {20: "1 month", 40: "2 months", 60: "3 months",
+                                                          120: "6 months", 250: "1 year"}[d])
+    fc = build_forecast(hist["Close"], int(horizon))
+    if fc is None:
+        empty_state("Not enough price history in this window to fit a forecast.",
+                    "Choose a longer chart period in the sidebar.")
+    else:
+        tail = hist["Close"].dropna().tail(180)
+        figf = go.Figure()
+        figf.add_trace(go.Scatter(x=np.concatenate([fc.index, fc.index[::-1]]),
+                                  y=np.concatenate([fc["Random-walk 95%"], fc["Random-walk 5%"][::-1]]),
+                                  fill="toself", fillcolor="rgba(99,102,241,0.12)", line=dict(width=0),
+                                  name="Random walk, 90% range", hoverinfo="skip"))
+        figf.add_trace(go.Scatter(x=np.concatenate([fc.index, fc.index[::-1]]),
+                                  y=np.concatenate([fc["Trend high"], fc["Trend low"][::-1]]),
+                                  fill="toself", fillcolor="rgba(148,163,184,0.14)", line=dict(width=0),
+                                  name="Trend, 95% interval", hoverinfo="skip"))
+        figf.add_trace(go.Scatter(x=tail.index, y=tail, name="Actual",
+                                  line=dict(color=T["text"], width=2.2)))
+        figf.add_trace(go.Scatter(x=fc.index, y=fc["Trend"], name="Log-linear trend",
+                                  line=dict(color=T["accent"], width=2, dash="dash")))
+        if "Damped trend" in fc.columns:
+            figf.add_trace(go.Scatter(x=fc.index, y=fc["Damped trend"], name="Damped trend (Holt)",
+                                      line=dict(color=T["warning"], width=2, dash="dot")))
+        figf.add_trace(go.Scatter(x=fc.index, y=fc["Random-walk median"], name="Random-walk median",
+                                  line=dict(color=T["success"], width=1.6)))
+        figf.update_yaxes(title_text=f"Price ({sym})")
+        figf.update_layout(hovermode="x unified")
+        style_fig(figf, height=430)
+        r2 = fc.attrs.get("r_squared")
+        figure(figf, f"Projected price over the next {horizon} trading days",
+               "Recent actual prices, then three forward projections: a log-linear trend fitted to the whole "
+               "window, Holt's damped trend which weights recent days far more heavily, and the median of a "
+               "geometric random walk built from this stock's own drift and volatility. The shaded areas are "
+               "the trend's 95% prediction interval and the random walk's 90% range.",
+               "Read the **width of the shading**, not the lines. If the bands are wide enough to contain both "
+               "a good and a bad outcome — which they almost always are — then the central lines are not a "
+               "target, they are the midpoint of a distribution. Where the damped trend diverges from the "
+               "log-linear one, recent behaviour differs from the longer window.",
+               f"The trend explains {Fmt.as_pct(r2)} of the variation in this window "
+               f"(R² = {r2:,.2f}). " if _isnum(r2) else ""
+               "None of these methods knows anything about earnings, competition or the news. They extrapolate "
+               "price history, which is exactly the thing that stops working when something changes.",
+               data=fc)
+
+        end = fc.iloc[-1]
+        kpi_grid([
+            {"label": "Trend projection", "value": Fmt.price(end["Trend"], sym),
+             "sub": f"{Fmt.as_pct(end['Trend'] / last_px - 1, signed=True)} from today",
+             "tone": "good" if end["Trend"] > last_px else "bad"},
+            {"label": "Damped trend", "value": Fmt.price(end.get("Damped trend"), sym),
+             "sub": "Weights recent days most heavily", "tone": "flat"},
+            {"label": "Random-walk median", "value": Fmt.price(end["Random-walk median"], sym),
+             "sub": "Drift only, no trend assumption", "tone": "flat"},
+            {"label": "90% range at the horizon", "value":
+                f"{Fmt.price(end['Random-walk 5%'], sym)} – {Fmt.price(end['Random-walk 95%'], sym)}",
+             "sub": "Nineteen times in twenty, inside this", "tone": "flat"},
+            {"label": "Implied annual volatility", "value": Fmt.as_pct(fc.attrs.get("annual_vol")),
+             "sub": "From this window's daily moves", "tone": "flat"},
+        ], min_width=200)
+
+        note(f"""
+Over {horizon} trading days the three methods land between
+**{Fmt.price(min(end['Trend'], end['Random-walk median']), sym)}** and
+**{Fmt.price(max(end['Trend'], end['Random-walk median']), sym)}**, inside a 90% range of
+{Fmt.price(end['Random-walk 5%'], sym)} to {Fmt.price(end['Random-walk 95%'], sym)}.
+- **A price forecast is not a valuation.** These methods extrapolate the price series and nothing else. The
+intrinsic valuation and peer sections answer what the business is worth; this answers what the recent price
+pattern would imply if it simply continued.
+- **The trend line is the most confident and the least trustworthy.** It fits the window you selected, so
+changing the chart period changes the forecast — worth trying, precisely because a projection that flips with
+the window is telling you how little signal there is.
+- **Use the band, not the line.** A range wide enough to contain both outcomes is the correct output of an
+honest short-horizon model, and it is the input a position size should be set from.
+""", tone="neu")
+
     trend = "above" if sma50 and last_px > sma50 else "below"
     rsi_state = ("stretched" if _isnum(rsi) and rsi > 70 else
                  "washed out" if _isnum(rsi) and rsi < 30 else "neutral")
@@ -3399,6 +3774,15 @@ elif view == "Financial Statements":
             f"As-reported line items in {target_currency}"
             + (" (last four quarters summed for flow items)." if basis == "TTM" else ".")
             + " Use the view switch to move between absolute figures, common-size percentages and growth rates.")
+
+    src = filing_source(co.ticker)
+    st.markdown(
+        f"<div class='card' style='margin-bottom:14px'><div class='card-title'>Where these numbers come from</div>"
+        f"<div class='card-body'>Figures here are the data provider's normalised version of "
+        f"{co.name}'s filings. The primary source for this market is "
+        + (f"<a href='{src['url']}' target='_blank'>{src['name']}</a>" if src["url"] else f"<b>{src['name']}</b>")
+        + f".<br><span style='color:var(--muted)'>{src['rhythm']}</span></div></div>",
+        unsafe_allow_html=True)
 
     stmt_view = segmented("View", ["Reported", "Common size", "Growth"], key="stmt_view",
                           help="Common size expresses each line as a share of revenue (or total assets on the "
@@ -3871,6 +4255,437 @@ shareholders {'comfortably' if (l_fcf or 0) > (div_paid + buyback) * 1.2 else 'o
 - Cross-check the leverage read against Net debt / EBITDA of {Fmt.ratio(safe_div(co.net_debt, info.get('ebitda')))}
 in section 1 before drawing a conclusion.
 """, tone="warn" if net_pos > 0 and (l_fcf or 0) < (div_paid + buyback) else "neu")
+
+
+# ==============================================================================
+elif view == "Capital Allocation":
+    inc_d, bs_d, cf_d = to_display(co.inc, fx), to_display(co.bs, fx), to_display(co.cf, fx)
+    if inc_d.empty or bs_d.empty:
+        empty_state("This module needs both an income statement and a balance sheet.")
+        st.stop()
+
+    section("Return on invested capital",
+            "Growth is only worth having if the capital funding it earns more than that capital costs. "
+            "This section measures the spread, and then follows where the cash actually went.")
+
+    # --- ROIC: NOPAT over invested capital -----------------------------------
+    tax_rate = 0.21
+    pretax, taxp = last(inc_d, "Pretax Income"), last(inc_d, "Tax Provision")
+    if _isnum(pretax) and pretax and _isnum(taxp):
+        tax_rate = float(np.clip(taxp / pretax, 0.0, 0.40))
+
+    def invested_capital(row):
+        """Total debt plus equity less cash: the capital the operating business
+        actually has at its disposal, which is what a return should be measured
+        against."""
+        debt = row.get("Total Debt")
+        if not _isnum(debt):
+            lt, st_ = row.get("Long Term Debt"), row.get("Current Debt")
+            debt = (lt if _isnum(lt) else 0.0) + (st_ if _isnum(st_) else 0.0)
+        eq = row.get("Stockholders Equity")
+        cash = row.get("Cash And Cash Equivalents")
+        if not _isnum(eq):
+            return None
+        return float(debt) + float(eq) - (float(cash) if _isnum(cash) else 0.0)
+
+    ebit_series = col(inc_d, "EBIT")
+    if ebit_series is None:
+        ebit_series = col(inc_d, "Operating Income")
+    if ebit_series is None:
+        empty_state("Operating profit is not reported, so ROIC cannot be computed.")
+        st.stop()
+
+    rows = []
+    for i, period in enumerate(bs_d.index):
+        if period not in inc_d.index:
+            continue
+        ic = invested_capital(bs_d.loc[period])
+        ebit = inc_d.loc[period].get("EBIT") or inc_d.loc[period].get("Operating Income")
+        if not _isnum(ic) or ic <= 0 or not _isnum(ebit):
+            continue
+        rows.append({"period": period, "NOPAT": ebit * (1 - tax_rate), "Invested capital": ic,
+                     "ROIC": ebit * (1 - tax_rate) / ic * 100})
+    roic_df = pd.DataFrame(rows).set_index("period") if rows else pd.DataFrame()
+
+    rf = load_risk_free_rate()
+    beta_v = info.get("beta") if _isnum(info.get("beta")) else 1.0
+    cost_debt = 0.05
+    int_exp, tot_debt = last(inc_d, "Interest Expense"), last(bs_d, "Total Debt")
+    if _isnum(int_exp) and _isnum(tot_debt) and tot_debt:
+        cost_debt = float(np.clip(abs(int_exp) / tot_debt, 0.005, 0.20))
+    wacc_v, cost_equity, w_e, w_d = Valuation.capm_wacc(
+        beta_v, rf, 0.05, cost_debt, tax_rate, (co.market_cap or 0) * fx,
+        (info.get("totalDebt") or last(bs_d, "Total Debt") or 0) * (1 if info.get("totalDebt") else 1))
+    wacc_pct = float(np.clip(wacc_v, 0.04, 0.20)) * 100
+
+    latest_roic = float(roic_df["ROIC"].iloc[-1]) if not roic_df.empty else None
+    spread = (latest_roic - wacc_pct) if latest_roic is not None else None
+
+    # Incremental return: the extra NOPAT earned on the extra capital committed.
+    ronic = None
+    if len(roic_df) >= 2:
+        d_nopat = float(roic_df["NOPAT"].iloc[-1] - roic_df["NOPAT"].iloc[0])
+        d_ic = float(roic_df["Invested capital"].iloc[-1] - roic_df["Invested capital"].iloc[0])
+        if d_ic > 0:
+            ronic = d_nopat / d_ic * 100
+
+    kpi_grid([
+        {"label": "ROIC", "value": Fmt.pct(latest_roic),
+         "sub": f"NOPAT {Fmt.money(roic_df['NOPAT'].iloc[-1] if not roic_df.empty else None, sym)} "
+                f"on {Fmt.money(roic_df['Invested capital'].iloc[-1] if not roic_df.empty else None, sym)}",
+         "tone": tone_for(latest_roic, 12, 6),
+         "help": "After-tax operating profit divided by debt plus equity less cash."},
+        {"label": "WACC", "value": Fmt.pct(wacc_pct),
+         "sub": f"Cost of equity {Fmt.as_pct(cost_equity)} at beta {Fmt.ratio(beta_v)}",
+         "tone": "flat",
+         "help": "The blended cost of the capital funding the business, from CAPM."},
+        {"label": "Spread", "value": Fmt.pct(spread, signed=True),
+         "sub": "ROIC less WACC — value created per unit of capital",
+         "tone": tone_for(spread, 2, -1),
+         "help": "Positive means each unit of capital employed earns more than it costs. Negative means "
+                 "growth destroys value however fast revenue climbs."},
+        {"label": "Incremental ROIC", "value": Fmt.pct(ronic),
+         "sub": "Extra NOPAT per unit of extra capital, across the reported period",
+         "tone": tone_for(ronic, 12, 5),
+         "help": "The return on the capital most recently committed, which matters far more than the "
+                 "average return on capital committed years ago."},
+    ], min_width=205)
+
+    if not roic_df.empty:
+        x = year_labels(roic_df.index)
+        figr = go.Figure()
+        figr.add_trace(go.Bar(x=x, y=roic_df["ROIC"], name="ROIC",
+                              marker_color=[T["success"] if v >= wacc_pct else T["danger"]
+                                            for v in roic_df["ROIC"]], opacity=.85))
+        figr.add_hline(y=wacc_pct, line_dash="dash", line_color=T["accent"],
+                       annotation_text=f"WACC {wacc_pct:,.1f}%", annotation_position="top left")
+        figr.update_xaxes(type="category")
+        figr.update_yaxes(title_text="%", ticksuffix="%")
+        style_fig(figr, height=340, legend="off")
+        figure(figr, "Return on invested capital against its cost",
+               "ROIC for each reported year, with the current cost of capital drawn across it. Bars are green "
+               "where the business earned more than its capital cost and red where it did not.",
+               "The **gap** is the whole story. A company earning 18% on capital that costs 8% creates value "
+               "with every unit it reinvests; one earning 5% on capital that costs 9% destroys value with "
+               "every unit, and growing faster only destroys it faster.",
+               "This is the single test that separates a compounding business from one that is merely large. "
+               "Revenue growth tells you nothing about it.",
+               data=roic_df)
+
+    # --- Cash deployment waterfall --------------------------------------------
+    section("Where the cash went",
+            "Every unit of cash the business generated, and the choice management made with it.")
+    ocf_total = float(col(cf_d, "Operating Cash Flow").sum()) if col(cf_d, "Operating Cash Flow") is not None else None
+    if ocf_total is None:
+        empty_state("No cash flow history available.")
+    else:
+        def total(name):
+            series = col(cf_d, name)
+            return abs(float(series.sum())) if series is not None else 0.0
+
+        capex = total("Capital Expenditure")
+        acq = total("Purchase Of Business")
+        buyback = total("Repurchase Of Capital Stock")
+        divs = total("Cash Dividends Paid")
+        debt_repaid = 0.0
+        dser = col(cf_d, "Net Issuance Payments Of Debt")
+        if dser is not None:
+            net_debt_flow = float(dser.sum())
+            debt_repaid = abs(net_debt_flow) if net_debt_flow < 0 else 0.0
+        retained = ocf_total - capex - acq - buyback - divs - debt_repaid
+
+        uses = {"Capital expenditure": capex, "Acquisitions": acq, "Buybacks": buyback,
+                "Dividends": divs, "Debt repaid": debt_repaid}
+        uses = {k: v for k, v in uses.items() if v > 0}
+
+        figw = go.Figure(go.Waterfall(
+            orientation="v",
+            measure=["absolute"] + ["relative"] * len(uses) + ["total"],
+            x=["Operating cash flow"] + list(uses.keys()) + ["Left on the balance sheet"],
+            y=[ocf_total] + [-v for v in uses.values()] + [0],
+            connector={"line": {"color": T["border"]}},
+            increasing={"marker": {"color": T["success"]}},
+            decreasing={"marker": {"color": T["danger"]}},
+            totals={"marker": {"color": T["accent"]}}))
+        figw.update_yaxes(title_text=f"Cumulative over the reported period ({sym})")
+        style_fig(figw, height=380, legend="off")
+        figure(figw, "Cash deployment across the reported period",
+               "Total cash generated from operations, and every use it was put to, summed across all "
+               "reported years.",
+               "Read the relative sizes. Heavy **capital expenditure** means the business must keep feeding "
+               "itself; heavy **acquisitions** mean growth is being bought rather than built, and should be "
+               "checked against the ROIC trend above; heavy **buybacks and dividends** mean management could "
+               "not find enough to reinvest in at an attractive return.",
+               "Capital allocation is the decision that compounds. A business with a high ROIC that returns "
+               "all its cash is a bond; one with a low ROIC that reinvests all of it is a value trap.",
+               data=pd.DataFrame({"Amount": {"Operating cash flow": ocf_total, **uses,
+                                             "Retained": retained}}))
+
+        mix = pd.Series(uses)
+        reinvest_share = safe_div(capex + acq, ocf_total)
+        return_share = safe_div(buyback + divs, ocf_total)
+        note(f"""
+Over the reported period the business generated **{Fmt.money(ocf_total, sym)}** from operations and put
+**{Fmt.as_pct(reinvest_share)}** of it back into the business, returning **{Fmt.as_pct(return_share)}** to
+shareholders.
+- **ROIC of {Fmt.pct(latest_roic)} against a cost of capital of {Fmt.pct(wacc_pct)}** means each unit
+reinvested {'creates' if (spread or 0) > 0 else 'destroys'} value.
+{'Reinvestment is the right call at this spread, and the heavier it is the better — provided incremental returns hold up.' if (spread or 0) > 2 else 'At a spread this thin, returning cash to shareholders is usually the better use of it than reinvestment.' if (spread or 0) < 1 else ''}
+- **Incremental ROIC of {Fmt.pct(ronic)}** is the forward-looking figure: it measures the capital committed
+most recently, not the legacy asset base. When it runs well below the average ROIC, the returns that built the
+company's reputation are not being repeated on new money.
+- **Acquisitions of {Fmt.money(acq, sym)}** deserve separate scrutiny: they are the deployment route with the
+worst average outcome across markets, and their effect shows up in ROIC only after the goodwill lands on the
+balance sheet.
+""", tone="pos" if (spread or 0) > 2 else "warn" if (spread or 0) > -1 else "neg")
+
+
+# ==============================================================================
+elif view == "Solvency & Debt":
+    inc_d, bs_d, cf_d = to_display(co.inc, fx), to_display(co.bs, fx), to_display(co.cf, fx)
+    if bs_d.empty:
+        empty_state("No balance sheet available for this symbol.")
+        st.stop()
+
+    section("Can the balance sheet take a shock?",
+            "Leverage only matters when refinancing or earnings turn against you. This section sizes both.")
+
+    latest_bs = bs_d.iloc[-1]
+    current_debt = latest_bs.get("Current Debt")
+    long_debt = latest_bs.get("Long Term Debt")
+    total_debt = latest_bs.get("Total Debt")
+    if not _isnum(total_debt):
+        total_debt = (current_debt if _isnum(current_debt) else 0.0) + (long_debt if _isnum(long_debt) else 0.0)
+    cash = latest_bs.get("Cash And Cash Equivalents")
+    net_debt_v = float(total_debt) - (float(cash) if _isnum(cash) else 0.0)
+    ebitda_v = (info.get("ebitda") or 0) * fx
+    if not ebitda_v:
+        op = last(inc_d, "EBIT", ) or last(inc_d, "Operating Income")
+        da = last(cf_d, "Depreciation And Amortization")
+        ebitda_v = (op or 0) + (da or 0)
+    ebit_v = last(inc_d, "EBIT") or last(inc_d, "Operating Income")
+    interest_v = abs(last(inc_d, "Interest Expense") or 0)
+    cover = safe_div(ebit_v, interest_v) if interest_v else None
+    avg_rate = safe_div(interest_v, total_debt)
+
+    kpi_grid([
+        {"label": "Total debt", "value": Fmt.money(total_debt, sym),
+         "sub": f"Cash {Fmt.money(cash, sym)} · net debt {Fmt.money(net_debt_v, sym)}",
+         "tone": "flat"},
+        {"label": "Net debt / EBITDA", "value": Fmt.ratio(safe_div(net_debt_v, ebitda_v)),
+         "sub": "Years of cash earnings to repay net borrowings",
+         "tone": tone_for(safe_div(net_debt_v, ebitda_v), 2, 4, higher_better=False),
+         "help": "Above roughly 3.5x is where lenders start attaching conditions and refinancing gets harder."},
+        {"label": "Interest cover", "value": Fmt.ratio(cover),
+         "sub": f"Operating profit {Fmt.money(ebit_v, sym)} against interest {Fmt.money(interest_v, sym)}",
+         "tone": tone_for(cover, 5, 2),
+         "help": "How many times over current earnings pay the interest bill. Below 2x leaves no room for a "
+                 "bad year."},
+        {"label": "Average borrowing rate", "value": Fmt.as_pct(avg_rate),
+         "sub": "Interest expense over total debt",
+         "tone": tone_for((avg_rate or 0) * 100 if avg_rate else None, 4, 8, higher_better=False),
+         "help": "A rate well below current market rates means cheap legacy debt that will reprice upward "
+                 "as it matures."},
+        {"label": "Due within a year", "value": Fmt.money(current_debt, sym),
+         "sub": f"{Fmt.as_pct(safe_div(current_debt, total_debt))} of total borrowings",
+         "tone": tone_for((safe_div(current_debt, total_debt) or 0) * 100 if _isnum(current_debt) else None,
+                          15, 40, higher_better=False)},
+    ], min_width=200)
+
+    # --- Maturity profile ------------------------------------------------------
+    lad = {"Due within 1 year": float(current_debt) if _isnum(current_debt) else 0.0,
+           "Due beyond 1 year": float(long_debt) if _isnum(long_debt) else 0.0}
+    if sum(lad.values()) > 0:
+        figl = go.Figure(go.Bar(x=list(lad.keys()), y=list(lad.values()),
+                                marker_color=[T["danger"], T["accent_soft"]], opacity=.85,
+                                text=[Fmt.money(v, sym) for v in lad.values()], textposition="outside"))
+        figl.update_yaxes(title_text=sym)
+        style_fig(figl, height=320, legend="off")
+        figure(figl, "Debt maturity profile, as reported",
+               "Borrowings split into the portion falling due within twelve months and the portion beyond it, "
+               "alongside the cash available to meet it.",
+               "Compare the left bar against cash of " + Fmt.money(cash, sym) + " and free cash flow of "
+               + Fmt.money((co.base_fcf or 0) * fx, sym) + ". If near-term maturities exceed both, the "
+               "company must refinance, and it will do so on whatever terms the market offers at the time.",
+               "A full year-by-year ladder is disclosed only in the notes to the accounts, which this data "
+               "source does not carry — the primary filing linked in the Financial Statements module has it. "
+               "The same applies to the fixed-versus-floating split, which is a note-level disclosure.",
+               data=pd.Series(lad).to_frame("Amount"))
+
+    # --- Refinancing stress test ----------------------------------------------
+    section("Refinancing stress test",
+            "What happens to interest cover if this debt is refinanced at higher rates.")
+    shock = st.slider("Increase in borrowing cost (basis points)", 0, 600, 200, 25,
+                      help="Applied to total debt, i.e. the fully-repriced case rather than only the "
+                           "portion maturing soon.")
+    if _isnum(ebit_v) and total_debt:
+        scenarios = []
+        for bump in (0, shock / 2, shock, shock * 1.5):
+            new_interest = interest_v + total_debt * (bump / 10000.0)
+            scenarios.append({"Rate increase (bps)": bump,
+                              "Interest expense": new_interest,
+                              "Interest cover": safe_div(ebit_v, new_interest),
+                              "Profit after interest": ebit_v - new_interest})
+        sdf = pd.DataFrame(scenarios).set_index("Rate increase (bps)")
+        c1, c2 = st.columns([1.2, 1])
+        with c1:
+            figs = go.Figure(go.Bar(x=[f"+{int(i)}bp" for i in sdf.index], y=sdf["Interest cover"],
+                                    marker_color=[T["success"] if v >= 3 else T["warning"] if v >= 1.5
+                                                  else T["danger"] for v in sdf["Interest cover"]],
+                                    text=[f"{v:,.1f}x" for v in sdf["Interest cover"]],
+                                    textposition="outside", opacity=.85))
+            figs.add_hline(y=2.0, line_dash="dot", line_color=T["danger"],
+                           annotation_text="2.0x — the level lenders watch")
+            figs.update_yaxes(title_text="Interest cover (x)")
+            style_fig(figs, height=330, legend="off")
+            figure(figs, "Interest cover under higher borrowing costs",
+                   "Operating profit divided by the interest bill, if all debt repriced upward by the amount "
+                   "shown.",
+                   "Watch where the bars cross the dotted line. That is the increase in rates at which this "
+                   "company stops comfortably covering its interest from operating profit — and therefore the "
+                   "point at which covenants, credit ratings and dividend policy come under real pressure.",
+                   "It assumes operating profit stays flat, which is the optimistic case: rates usually rise "
+                   "because the economy is running hot, and they bite hardest when it subsequently is not.")
+        with c2:
+            table(sdf, "Stress scenarios",
+                  "Each row repriced the whole debt stack, holding operating profit constant.",
+                  formats={"Interest expense": lambda v: Fmt.money(v, sym),
+                           "Interest cover": "{:,.2f}x",
+                           "Profit after interest": lambda v: Fmt.money(v, sym)})
+
+        breaking = next((int(i) for i, v in sdf["Interest cover"].items() if _isnum(v) and v < 2.0), None)
+        note(f"""
+Interest cover today is **{Fmt.ratio(cover)}**, on an average borrowing cost of **{Fmt.as_pct(avg_rate)}**.
+- {'A ' + str(breaking) + ' basis point rise in borrowing costs would take cover below 2.0x, the level at which lenders and rating agencies start to react.' if breaking else 'Even a ' + str(int(shock * 1.5)) + ' basis point rise leaves cover above 2.0x on current earnings, which is a genuinely resilient position.'}
+- **{Fmt.money(current_debt, sym)} falls due within a year**, against cash of {Fmt.money(cash, sym)}. That is
+the immediate refinancing question, and it is answered by the balance sheet rather than by the income statement.
+- **The average rate paid ({Fmt.as_pct(avg_rate)}) versus current market rates** tells you which direction the
+interest bill is heading. Cheap legacy debt is an asset that quietly expires.
+- A year-by-year maturity ladder and the fixed-versus-floating split are note-level disclosures. This module
+shows what the summary statements carry; the primary filing has the rest.
+""", tone="pos" if (cover or 0) >= 5 else "warn" if (cover or 0) >= 2 else "neg")
+
+
+# ==============================================================================
+elif view == "Dilution & Owner Earnings":
+    inc_d, cf_d, bs_d = to_display(co.inc, fx), to_display(co.cf, fx), to_display(co.bs, fx)
+    if cf_d.empty or inc_d.empty:
+        empty_state("This module needs both an income statement and a cash flow statement.")
+        st.stop()
+
+    section("What is left for owners, after paying people in stock",
+            "Stock compensation is added back in the cash flow statement because no cash moved. It is still a "
+            "real cost — it is paid in ownership rather than in cash, and it lands on the share count.")
+
+    shares_series = col(inc_d, "Diluted Average Shares")
+    if shares_series is None:
+        shares_series = col(inc_d, "Basic Average Shares")
+    if shares_series is None:
+        shares_series = col(bs_d, "Share Issued")
+    sbc_series = col(cf_d, "Stock Based Compensation")
+    ocf_series = col(cf_d, "Operating Cash Flow")
+    fcf_series = col(cf_d, "Free Cash Flow")
+    if fcf_series is None and ocf_series is not None:
+        capex_series = col(cf_d, "Capital Expenditure")
+        fcf_series = ocf_series + (capex_series if capex_series is not None else 0)
+    rev_series = col(inc_d, "Total Revenue")
+
+    share_cagr = None
+    if shares_series is not None and shares_series.dropna().size >= 2:
+        sh = shares_series.dropna()
+        share_cagr = cagr(float(sh.iloc[0]), float(sh.iloc[-1]), len(sh) - 1)
+
+    sbc_latest = float(sbc_series.dropna().iloc[-1]) if sbc_series is not None and sbc_series.dropna().size else None
+    ocf_latest = float(ocf_series.dropna().iloc[-1]) if ocf_series is not None and ocf_series.dropna().size else None
+    fcf_latest = float(fcf_series.dropna().iloc[-1]) if fcf_series is not None and fcf_series.dropna().size else None
+    rev_latest = float(rev_series.dropna().iloc[-1]) if rev_series is not None and rev_series.dropna().size else None
+    shares_latest = float(shares_series.dropna().iloc[-1]) if shares_series is not None and shares_series.dropna().size else (co.shares or None)
+
+    adj_fcf = (fcf_latest - sbc_latest) if _isnum(fcf_latest) and _isnum(sbc_latest) else fcf_latest
+    fcf_ps = safe_div(fcf_latest, shares_latest)
+    adj_fcf_ps = safe_div(adj_fcf, shares_latest)
+    price_now = (co.price or 0) * fx
+
+    kpi_grid([
+        {"label": "Diluted share count CAGR", "value": Fmt.as_pct(share_cagr, signed=True),
+         "sub": "Annual change across the reported history",
+         "tone": tone_for((share_cagr or 0) * 100 if share_cagr is not None else None, 0, 2, higher_better=False),
+         "help": "Positive means each existing share owns a little less of the company every year."},
+        {"label": "Stock compensation", "value": Fmt.money(sbc_latest, sym),
+         "sub": f"{Fmt.as_pct(safe_div(sbc_latest, rev_latest))} of revenue · "
+                f"{Fmt.as_pct(safe_div(sbc_latest, ocf_latest))} of operating cash flow",
+         "tone": tone_for((safe_div(sbc_latest, rev_latest) or 0) * 100 if _isnum(sbc_latest) else None,
+                          3, 12, higher_better=False)},
+        {"label": "Reported FCF per share", "value": Fmt.price(fcf_ps, sym),
+         "sub": "As the cash flow statement presents it", "tone": "flat"},
+        {"label": "FCF per share after stock comp", "value": Fmt.price(adj_fcf_ps, sym),
+         "sub": f"{Fmt.as_pct(safe_div(adj_fcf, fcf_latest) - 1 if _isnum(adj_fcf) and fcf_latest else None, signed=True)} against the reported figure",
+         "tone": tone_for((safe_div(adj_fcf, fcf_latest) or 0) * 100 if _isnum(adj_fcf) and fcf_latest else None,
+                          90, 70),
+         "help": "Treating stock compensation as the cost it is, rather than adding it back."},
+        {"label": "Yield on owner earnings", "value": Fmt.as_pct(safe_div(adj_fcf_ps, price_now)),
+         "sub": "Adjusted free cash flow per share against the price",
+         "tone": tone_for((safe_div(adj_fcf_ps, price_now) or 0) * 100 if price_now else None, 5, 2)},
+    ], min_width=205)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if shares_series is not None and shares_series.dropna().size >= 2:
+            sh = shares_series.dropna()
+            figsh = go.Figure(go.Scatter(x=year_labels(sh.index), y=sh, mode="lines+markers",
+                                         line=dict(color=T["accent"], width=2.6), name="Diluted shares"))
+            figsh.update_xaxes(type="category")
+            figsh.update_yaxes(title_text="Shares outstanding")
+            style_fig(figsh, height=320, legend="off")
+            figure(figsh, "Diluted share count over time",
+                   "The number of shares the company's earnings are divided between, each reported year.",
+                   "A line drifting **up** means existing holders own a shrinking slice — earnings per share "
+                   "grows more slowly than earnings. A line drifting **down** means buybacks are outrunning "
+                   "issuance, and per-share figures grow faster than the business.",
+                   f"At {Fmt.as_pct(share_cagr, signed=True)} a year, this is "
+                   + ("a meaningful drag on per-share returns that compounds silently."
+                      if (share_cagr or 0) > 0.01 else
+                      "not materially diluting existing holders.")
+                   + " Buybacks that merely offset issuance return nothing to owners; they just stop the leak.",
+                   data=sh.to_frame("Diluted shares"))
+    with c2:
+        if fcf_series is not None and sbc_series is not None:
+            comp = pd.DataFrame({"Reported FCF": fcf_series, "After stock comp": fcf_series - sbc_series}).dropna()
+            if not comp.empty:
+                x = year_labels(comp.index)
+                figc = go.Figure()
+                figc.add_trace(go.Bar(x=x, y=comp["Reported FCF"], name="Reported free cash flow",
+                                      marker_color=T["accent_soft"], opacity=.85))
+                figc.add_trace(go.Bar(x=x, y=comp["After stock comp"], name="After stock compensation",
+                                      marker_color=T["warning"], opacity=.9))
+                figc.update_layout(barmode="overlay")
+                figc.update_xaxes(type="category")
+                figc.update_yaxes(title_text=sym)
+                style_fig(figc, height=320)
+                figure(figc, "Free cash flow, before and after the cost of stock compensation",
+                       "Reported free cash flow beside the same figure with stock-based compensation "
+                       "subtracted rather than added back.",
+                       "The gap is the part of reported cash flow that exists because employees were paid in "
+                       "ownership instead of cash. For companies where the gap is wide, the headline free "
+                       "cash flow yield is measuring something the owners never receive.",
+                       "Whether stock compensation is a real expense is one of the few genuine accounting "
+                       "debates left. The defensible position: it is real, because the alternative was paying "
+                       "cash, and the bill arrives as dilution.",
+                       data=comp)
+
+    note(f"""
+Reported free cash flow of **{Fmt.money(fcf_latest, sym)}** becomes **{Fmt.money(adj_fcf, sym)}** once stock
+compensation of {Fmt.money(sbc_latest, sym)} is treated as the cost it is.
+- **Per share, that is {Fmt.price(fcf_ps, sym)} against {Fmt.price(adj_fcf_ps, sym)}** — and per share is the
+only unit that matters to an owner, because it already accounts for the shares the company issued along the way.
+- **The share count is compounding at {Fmt.as_pct(share_cagr, signed=True)} a year.**
+{'Over a decade that alone consumes a meaningful share of the returns, before the business has done anything wrong.' if (share_cagr or 0) > 0.01 else 'That is low enough not to materially change the investment case.'}
+- **Watch buybacks against issuance, not in isolation.** A company can spend heavily on repurchases and still
+end the year with more shares outstanding. The chart above settles that question in one line, where the
+buyback announcement does not.
+- Stock compensation of {Fmt.as_pct(safe_div(sbc_latest, rev_latest))} of revenue is
+{'high enough that the valuation multiples elsewhere in this app understate what owners are paying' if (safe_div(sbc_latest, rev_latest) or 0) > 0.08 else 'modest relative to revenue'}.
+""", tone="warn" if (share_cagr or 0) > 0.01 else "neu")
 
 
 # ==============================================================================
@@ -4585,6 +5400,85 @@ anything about this business.
 - Net, the largest rally {'outpaced' if (best_val or 0) > abs(worst_val or 0) else 'was outpaced by'} the
 largest drawdown over this window.
 """, tone="pos" if (best_val or 0) > abs(worst_val or 0) else "warn")
+
+    # --- Automatic wall of worry ----------------------------------------------
+    section("Wall of worry, assembled automatically",
+            "Every statistically unusual day in this window, found without being told what to look for, and "
+            "matched against the headlines closest to it.")
+
+    shocks = detect_shocks(px_series, z_threshold=2.5, max_events=10)
+    if shocks.empty:
+        empty_state("No day in this window moved far enough to stand out statistically.",
+                    "Try a longer chart period — quiet windows genuinely have no outliers.")
+    else:
+        all_news = [n for n in (company_news + sector_news) if n.get("time")]
+
+        def nearest_headline(day, window_days=3):
+            best, best_gap = None, None
+            for item in all_news:
+                gap = abs((item["time"].date() - day.date()).days)
+                if gap <= window_days and (best_gap is None or gap < best_gap):
+                    best, best_gap = item, gap
+            return best, best_gap
+
+        event_rows, annotated = [], []
+        for day, row in shocks.iterrows():
+            item, gap = nearest_headline(pd.Timestamp(day))
+            event_rows.append({
+                "Date": pd.Timestamp(day).strftime("%d %b %Y"),
+                "Move %": float(row["Move %"]),
+                "Sigma": float(row["Sigma"]),
+                "Closest headline": (item["title"][:110] if item else "nothing in the current news window"),
+                "Days apart": (gap if item else np.nan),
+            })
+            annotated.append((pd.Timestamp(day), float(row["Move %"]), item))
+
+        figsh = go.Figure()
+        figsh.add_trace(go.Scatter(x=px_series.index, y=px_series, name="Price",
+                                   line=dict(color=T["accent"], width=2)))
+        for day, move, item in annotated:
+            if day not in px_series.index:
+                continue
+            colour = T["success"] if move > 0 else T["danger"]
+            figsh.add_trace(go.Scatter(
+                x=[day], y=[float(px_series.loc[day])], mode="markers",
+                marker=dict(size=11, color=colour, symbol="circle-open", line=dict(width=2.5)),
+                name=f"{move:+.1f}%", showlegend=False,
+                hovertext=(f"{day:%d %b %Y}: {move:+.1f}%<br>"
+                           + (item["title"][:90] if item else "no headline nearby")),
+                hoverinfo="text"))
+        figsh.update_yaxes(title_text=f"Price ({sym})")
+        style_fig(figsh, height=380, legend="off")
+        figure(figsh, "Statistically unusual days, marked automatically",
+               "Every day whose move was at least 2.5 standard deviations from this stock's own average, "
+               "circled in green for gains and red for falls. Hover for the headline nearest that date.",
+               "The threshold is measured in this stock's **own** volatility, not a fixed percentage, so a 4% "
+               "day registers as a shock for a steady name and passes unremarked for a volatile one. Clusters "
+               "of circles matter more than isolated ones: they mark regime changes rather than single events.",
+               "Marking the moves first and looking for the cause second is the right order. Reading the news "
+               "first invites you to find a story for a move that was just noise.",
+               data=shocks)
+
+        edf = pd.DataFrame(event_rows).set_index("Date")
+        table(edf, "Unusual days and the nearest headline",
+              "Matched within three days either side. A blank match means the current news feed does not "
+              "reach back that far — it is a limit of the feed, not evidence that nothing happened.",
+              formats={"Move %": "{:+,.2f}%", "Sigma": "{:+,.1f}σ", "Days apart": "{:,.0f}"})
+
+        ups = int((shocks["Move %"] > 0).sum())
+        downs = int((shocks["Move %"] < 0).sum())
+        matched = sum(1 for r in event_rows if not pd.isna(r["Days apart"]))
+        note(f"""
+This window contains **{len(shocks)} statistically unusual days** — {ups} up, {downs} down — of which
+**{matched}** fall within three days of a headline currently in the feed.
+- **The unmatched ones are the interesting ones.** A large move with no company or sector news nearby is
+usually an index-level event, a sector rotation, or a flow rather than anything about this business. The news
+feed here reaches back only a few weeks, so older events will show blank regardless.
+- **Direction matters less than clustering.** Several outliers close together mark a period when the market
+was repricing the company, and that is the stretch to read the filings and transcripts around.
+- Thresholds are relative to this stock's own volatility over the window, so changing the chart period changes
+what counts as unusual — a deliberate property, not an inconsistency.
+""", tone="warn" if downs > ups else "neu")
 
     section("News context", "Recent company and sector headlines, most recent first.")
     n1, n2 = st.columns(2)
@@ -5435,6 +6329,9 @@ with x2:
         rows = [
             ("Source", DATA_SOURCE),
             ("Quote endpoint", f"{quote_fields} of {len(QUOTE_METRICS)} headline metrics returned"),
+            ("Primary filings", (f"<a href='{filing_source(co.ticker)['url']}' target='_blank'>"
+                                 f"{filing_source(co.ticker)['name']}</a>"
+                                 if filing_source(co.ticker)["url"] else filing_source(co.ticker)["name"])),
             ("Computed locally", f"{len(co.derived)} field(s)" + (f" — {', '.join(sorted(co.derived))}"
                                                                   if co.derived else "")),
             ("Symbol resolved", f"{co.ticker} · {market_label(co.ticker)}"),
