@@ -535,6 +535,13 @@ class Fmt:
             return Fmt.NA
 
 
+def conv(value, rate):
+    """Convert a monetary figure into the display currency. Returns None when
+    the value itself is missing, so a gap in the data feed reads as "not
+    available" instead of raising on `None * rate`."""
+    return value * rate if _isnum(value) else None
+
+
 def safe_div(n, d):
     if not _isnum(n) or not _isnum(d) or d == 0:
         return None
@@ -1428,12 +1435,18 @@ class Company:
 
     @property
     def net_debt(self):
+        """Total debt less cash, always a real number.
+
+        Every branch is filtered through `_isnum` because a NaN coming out of a
+        sparse balance sheet is truthy: `nan or 0` returns nan, and every
+        downstream comparison against it then quietly evaluates false."""
         debt, cash = self.info.get("totalDebt"), self.info.get("totalCash")
         if _isnum(debt) or _isnum(cash):
-            return (debt or 0) - (cash or 0)
+            return (debt if _isnum(debt) else 0.0) - (cash if _isnum(cash) else 0.0)
         if not self.bs.empty:
             row = self.bs.iloc[-1]
-            return (row.get("Total Debt", 0) or 0) - (row.get("Cash And Cash Equivalents", 0) or 0)
+            d, c = row.get("Total Debt"), row.get("Cash And Cash Equivalents")
+            return (d if _isnum(d) else 0.0) - (c if _isnum(c) else 0.0)
         return 0.0
 
     def history(self, period="1y", interval="1d"):
@@ -2644,7 +2657,7 @@ if view == "Executive Dashboard":
                       key=lambda p: p.score, default=None)
         note(f"""
 **{co.name}** is a {co.industry.lower() if co.industry != Fmt.NA else 'diversified'} business in the
-{co.sector} sector, capitalised at **{Fmt.money(co.market_cap * fx, sym)}** and trading at
+{co.sector} sector, capitalised at **{Fmt.money(conv(co.market_cap, fx), sym)}** and trading at
 **{Fmt.price((co.price or 0) * fx, sym)}**.
 - **What the market pays.** {'A trailing P/E of ' + Fmt.ratio(pe) if _isnum(pe) and pe > 0 else 'Earnings are negative or unreported, so P/E is not meaningful'}
 {' and a free cash flow yield of ' + Fmt.as_pct(fcf_yield) if fcf_yield is not None else ''}.
@@ -2654,7 +2667,7 @@ if view == "Executive Dashboard":
 margins of {Fmt.as_pct(info.get('operatingMargins'))}{', with revenue compounding at ' + Fmt.as_pct(rev_cagr) + ' over the reported history' if rev_cagr is not None else ''}.
 - **How it is financed.** {'Debt to equity of ' + Fmt.ratio(de) if de is not None else 'Leverage is unreported'}
 with a current ratio of {Fmt.ratio(info.get('currentRatio'))} and a net {'debt' if co.net_debt >= 0 else 'cash'}
-position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
+position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
 - **Where to look next.** {'Strongest pillar: **' + strongest.name + f'** ({strongest.score:.0f}/100). ' if strongest else ''}
 {'Weakest: **' + weakest.name + f'** ({weakest.score:.0f}/100) — start there.' if weakest else ''}
 """, tone="pos" if (total or 0) >= 65 else "warn" if (total or 0) >= 40 else "neg",
@@ -2667,8 +2680,8 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
     div_y = div_facts["yield"]
     nd_ebitda = safe_div(co.net_debt, info.get("ebitda"))
     kpi_grid([
-        {"label": "Market cap", "value": Fmt.money(co.market_cap * fx if co.market_cap else None, sym),
-         "sub": f"Enterprise value {Fmt.money(ev * fx if _isnum(ev) else None, sym)}", "tone": "flat",
+        {"label": "Market cap", "value": Fmt.money(conv(co.market_cap, fx), sym),
+         "sub": f"Enterprise value {Fmt.money(conv(ev, fx), sym)}", "tone": "flat",
          "help": "Share price times shares outstanding: the value of the equity alone."},
         {"label": "Trailing P/E", "value": Fmt.ratio(info.get("trailingPE")),
          "sub": f"Forward {Fmt.ratio(info.get('forwardPE'))}",
@@ -2678,7 +2691,7 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
          "sub": "Capital-structure neutral", "tone": tone_for(info.get("enterpriseToEbitda"), 10, 20, higher_better=False),
          "help": "Enterprise value against cash operating earnings; comparable across different debt levels."},
         {"label": "FCF yield", "value": Fmt.as_pct(fcf_yield),
-         "sub": f"FCF {Fmt.money(co.base_fcf * fx if co.base_fcf else None, sym)}",
+         "sub": f"FCF {Fmt.money(conv(co.base_fcf, fx), sym)}",
          "tone": tone_for((fcf_yield or 0) * 100 if fcf_yield is not None else None, 5, 2),
          "help": "Free cash flow divided by market cap: the cash return at today's price."},
         {"label": "Return on equity", "value": Fmt.as_pct(info.get("returnOnEquity")),
@@ -2791,7 +2804,7 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
             kpi_grid([
                 {"label": "Analyst consensus", "value": rec,
                  "sub": f"{info.get('numberOfAnalystOpinions', Fmt.NA)} contributing analysts", "tone": "flat"},
-                {"label": "Mean target price", "value": Fmt.price(target * fx if _isnum(target) else None, sym),
+                {"label": "Mean target price", "value": Fmt.price(conv(target, fx), sym),
                  "sub": f"{Fmt.as_pct(upside, signed=True)} versus the current price" if upside is not None else "",
                  "tone": tone_for((upside or 0) * 100 if upside is not None else None, 10, -5)},
                 {"label": "Graham number", "value": Fmt.price(
@@ -2941,8 +2954,7 @@ position of {Fmt.money(abs(co.net_debt) * fx, sym)}.
                 {"label": "Dividend yield", "value": Fmt.as_pct(div_y),
                  "sub": f"Five-year average {Fmt.as_pct(div_facts['five_year_avg'])}",
                  "tone": "flat"},
-                {"label": "Annual dividend", "value": Fmt.price(
-                    (div_facts["rate"] or 0) * fx if _isnum(div_facts["rate"]) else None, sym),
+                {"label": "Annual dividend", "value": Fmt.price(conv(div_facts["rate"], fx), sym),
                  "sub": "Per share, most recent annualised rate", "tone": "flat"},
                 {"label": "Ex-dividend date", "value": Fmt.date(div_facts["ex_date"]),
                  "sub": "Buy before this date to receive the next payment", "tone": "flat",
