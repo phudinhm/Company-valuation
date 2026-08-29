@@ -15,17 +15,40 @@ streamlit run app.py
 |---|--------|---------|
 | 00 | Guide & Method | How each module works, and the assumptions behind every calculated figure. |
 | 01 | Executive Dashboard | Composite screen, headline metrics, margin and return decomposition, dividends, earnings-quality flags. |
-| 02 | Technical Analysis | Trend, momentum and volatility from price action. |
-| 03 | Financial Statements | Reported line items on an Annual, Quarterly or TTM basis, with common-size figures beside live industry medians and a line-by-line explanation of what every reported item means. |
+| 02 | Technical Analysis | Trend, momentum, volatility — and a forward projection from three independent methods. |
+| 03 | Financial Statements | Reported line items on an Annual, Quarterly or TTM basis, common-size figures beside live industry medians, a line-by-line explanation of every reported item, and a link to the market's primary filing source. |
 | 04 | Cash Flow Quality | Whether reported profit turns into cash, and what it costs to keep the business running. |
-| 05 | Intrinsic Valuation | Three-phase DCF, reverse DCF, scenarios, sensitivity grid, cross-method summary. |
-| 06 | Peer Comparables | Percentile ranking, growth-versus-valuation regression, peer-implied price ranges. |
-| 07 | Compare Companies | Two or more companies side by side: rebased performance, a comparison matrix, profile scores, return correlation. |
-| 08 | Risk & Scenarios | Volatility, drawdown, value at risk, expected shortfall, Monte Carlo simulation. |
-| 09 | Investment Simulator | What a lump sum, or a monthly contribution, invested on a past date would be worth now — against a benchmark and against every alternative start date. |
-| 10 | Portfolio | Allocation against policy targets, drift and where new capital should go, concentration guardrails, time-weighted and money-weighted return, benchmark comparison, holdings on fundamentals. |
-| 11 | Price & Capital Dynamics | Price against market capitalisation, news context, enterprise value bridge. |
-| 12 | Market Leaders | Cross-company ranking by size and revenue, with three-year trajectories. |
+| 05 | Capital Allocation | ROIC against WACC, incremental return on new capital, and a waterfall of where the cash actually went. |
+| 06 | Solvency & Debt | Maturity profile, leverage, interest cover, and a refinancing stress test at higher rates. |
+| 07 | Dilution & Owner Earnings | Share-count creep, stock compensation as a share of revenue and cash flow, and free cash flow per share after it. |
+| 08 | Intrinsic Valuation | Three-phase DCF, reverse DCF, scenarios, sensitivity grid, cross-method summary. |
+| 09 | Peer Comparables | Percentile ranking, growth-versus-valuation regression, peer-implied price ranges. |
+| 10 | Compare Companies | Two or more companies side by side: rebased performance, comparison matrix, profile scores, return correlation. |
+| 11 | Risk & Scenarios | Volatility, drawdown, value at risk, expected shortfall, Monte Carlo simulation. |
+| 12 | Investment Simulator | What a lump sum, or a monthly contribution, invested on a past date would be worth now. |
+| 13 | Portfolio | Allocation against policy targets, drift, concentration guardrails, time-weighted and money-weighted return, benchmark comparison. |
+| 14 | Price & Capital Dynamics | Price against market cap, an automatically assembled wall of worry, and the enterprise value bridge. |
+| 15 | Market Leaders | Cross-company ranking by size and revenue, with three-year trajectories. |
+
+## Coverage
+
+Any listed company on any market yfinance can reach. Nothing about the company
+universe is bundled with the app:
+
+* **Search** resolves a name or partial symbol through four independent routes —
+  `yf.Search`, `yf.Lookup`, Yahoo's raw search endpoint, and, when all of those
+  are throttled, by probing the query as a symbol across every market suffix in
+  parallel. One rate-limited endpoint cannot make a real company look
+  nonexistent.
+* **Markets** are selectable for every Yahoo exchange suffix, from Vietnam and
+  Vietnam's HOSE through to Brazil, Saudi Arabia and the Nordics.
+* **Quotes degrade gracefully.** When Yahoo's quote endpoint is rate-limited —
+  routine on shared cloud hosting — the headline metrics are recomputed from the
+  company's own filings, and the page says which figures were computed rather
+  than quoted.
+* **Primary sources are linked per market**, with that market's own reporting
+  rhythm: SEC EDGAR for the US, HOSE and Vietstock for Vietnam, EDINET for
+  Japan, HKEXnews for Hong Kong, and so on.
 
 ## How it is built
 
