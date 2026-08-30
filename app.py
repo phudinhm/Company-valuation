@@ -716,6 +716,278 @@ def _norm_stmt(df) -> pd.DataFrame:
     return out.loc[:, ~out.columns.duplicated()]
 
 
+# --- Backup sources ----------------------------------------------------------
+# Yahoo rate-limits per source address, and a shared cloud host hits that limit
+# routinely. Two independent providers stand behind it. Neither needs an API key,
+# so they work on any deployment without configuration:
+#
+#   Stooq       - daily price history as CSV, covering most developed markets.
+#   SEC EDGAR   - the XBRL company-facts API: the filings themselves, straight
+#                 from the regulator. US filers only, but authoritative.
+#
+# Whichever source answers is recorded, and the provenance panel names it, so a
+# figure can always be traced back to where it came from.
+
+SOURCE_LOG_KEY = "_source_log"
+
+
+def note_source(what: str, source: str):
+    """Records which provider actually served a piece of data. Wrapped because
+    cached loaders can run outside a script context, where session state is
+    unavailable — losing a provenance note must never break a fetch."""
+    try:
+        st.session_state.setdefault(SOURCE_LOG_KEY, {})[what] = source
+    except Exception:
+        pass
+
+
+def _http_json(url: str, timeout: int = 10, headers: dict = None):
+    req = urllib.request.Request(url, headers=headers or {"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _http_text(url: str, timeout: int = 10, headers: dict = None):
+    req = urllib.request.Request(url, headers=headers or {"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+# Stooq's own market suffixes, keyed by the Yahoo suffix this app uses.
+STOOQ_SUFFIX = {
+    "": ".us", "DE": ".de", "F": ".de", "L": ".uk", "T": ".jp", "HK": ".hk",
+    "PA": ".fr", "MI": ".it", "MC": ".es", "AS": ".nl", "BR": ".be", "VI": ".at",
+    "SW": ".ch", "ST": ".se", "OL": ".no", "CO": ".dk", "HE": ".fi", "IR": ".ie",
+    "LS": ".pt", "AT": ".gr", "WA": ".pl", "PR": ".cz", "BD": ".hu", "IS": ".tr",
+    "TA": ".il", "NS": ".in", "BO": ".in", "SS": ".cn", "SZ": ".cn", "KS": ".kr",
+    "KQ": ".kr", "TW": ".tw", "SI": ".sg", "AX": ".au", "NZ": ".nz", "TO": ".ca",
+    "V": ".ca", "SA": ".br", "MX": ".mx", "BA": ".ar", "SN": ".cl", "JO": ".za",
+}
+
+
+def _stooq_symbol(ticker: str):
+    """Translates a Yahoo symbol into Stooq's convention, or None where Stooq
+    does not cover that market (Vietnam among them)."""
+    if not ticker:
+        return None
+    if "." in ticker:
+        base, suffix = ticker.rsplit(".", 1)
+        suffix = suffix.upper()
+    else:
+        base, suffix = ticker, ""
+    stooq_suffix = STOOQ_SUFFIX.get(suffix)
+    if stooq_suffix is None:
+        return None
+    return f"{base.replace('-', '.').lower()}{stooq_suffix}"
+
+
+def _stooq_history(ticker: str) -> pd.DataFrame:
+    """Daily OHLCV from Stooq. Returns the app's usual history shape so it can
+    be swapped in wherever a Yahoo history would have gone."""
+    symbol = _stooq_symbol(ticker)
+    if not symbol:
+        return pd.DataFrame()
+    try:
+        text = _http_text(f"https://stooq.com/q/d/l/?s={urllib.parse.quote(symbol)}&i=d", timeout=12)
+    except Exception as exc:
+        note_error("stooq history", exc)
+        return pd.DataFrame()
+    lines = text.splitlines() if text else []
+    if not lines or "," not in lines[0]:
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(io.StringIO(text))
+    except Exception:
+        return pd.DataFrame()
+    if df.empty or "Date" not in df.columns or "Close" not in df.columns:
+        return pd.DataFrame()
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df.dropna(subset=["Date"]).set_index("Date").sort_index()
+    for column in ("Open", "High", "Low", "Close", "Volume"):
+        if column not in df.columns:
+            df[column] = np.nan
+    return df[["Open", "High", "Low", "Close", "Volume"]]
+
+
+def _stooq_window(ticker: str, period: str) -> pd.DataFrame:
+    """Stooq serves the full history in one file; this trims it to the period
+    the caller asked Yahoo for, so the fallback is a drop-in replacement."""
+    df = _stooq_history(ticker)
+    if df.empty:
+        return df
+    days = {"5d": 7, "1mo": 31, "3mo": 93, "6mo": 186, "1y": 365,
+            "3y": 1095, "5y": 1825, "10y": 3650}.get(period)
+    if period == "ytd":
+        return df[df.index >= pd.Timestamp(datetime.now().year, 1, 1)]
+    if days:
+        return df[df.index >= pd.Timestamp(datetime.now().date() - timedelta(days=days))]
+    return df
+
+
+# --- SEC EDGAR ---------------------------------------------------------------
+# The SEC asks that automated requests identify themselves; this is that
+# identification, and the 10 requests/second guidance is respected simply by how
+# little this app calls it (twice per company, both cached for a day).
+SEC_HEADERS = {"User-Agent": "Investment Terminal research app (contact via GitHub repository)",
+               "Accept-Encoding": "gzip, deflate", "Host": "data.sec.gov"}
+
+# XBRL concepts mapped onto the line-item names the rest of the app expects, so
+# a statement rebuilt from EDGAR is indistinguishable downstream.
+SEC_INCOME = {
+    "Total Revenue": ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
+                      "SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"],
+    "Cost Of Revenue": ["CostOfGoodsAndServicesSold", "CostOfRevenue"],
+    "Gross Profit": ["GrossProfit"],
+    "Research And Development": ["ResearchAndDevelopmentExpense"],
+    "Selling General And Administration": ["SellingGeneralAndAdministrativeExpense"],
+    "Operating Expense": ["OperatingExpenses", "CostsAndExpenses"],
+    "Operating Income": ["OperatingIncomeLoss"],
+    "Interest Expense": ["InterestExpense", "InterestIncomeExpenseNet"],
+    "Pretax Income": ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+                      "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
+    "Tax Provision": ["IncomeTaxExpenseBenefit"],
+    "Net Income": ["NetIncomeLoss", "ProfitLoss"],
+}
+SEC_INCOME_PERSHARE = {
+    "Basic EPS": ["EarningsPerShareBasic"],
+    "Diluted EPS": ["EarningsPerShareDiluted"],
+}
+SEC_INCOME_SHARES = {
+    "Basic Average Shares": ["WeightedAverageNumberOfSharesOutstandingBasic"],
+    "Diluted Average Shares": ["WeightedAverageNumberOfDilutedSharesOutstanding"],
+}
+SEC_BALANCE = {
+    "Cash And Cash Equivalents": ["CashAndCashEquivalentsAtCarryingValue"],
+    "Accounts Receivable": ["AccountsReceivableNetCurrent"],
+    "Inventory": ["InventoryNet"],
+    "Current Assets": ["AssetsCurrent"],
+    "Net PPE": ["PropertyPlantAndEquipmentNet"],
+    "Goodwill": ["Goodwill"],
+    "Total Assets": ["Assets"],
+    "Accounts Payable": ["AccountsPayableCurrent"],
+    "Current Liabilities": ["LiabilitiesCurrent"],
+    "Current Debt": ["LongTermDebtCurrent", "DebtCurrent"],
+    "Long Term Debt": ["LongTermDebtNoncurrent", "LongTermDebt"],
+    "Total Liabilities Net Minority Interest": ["Liabilities"],
+    "Retained Earnings": ["RetainedEarningsAccumulatedDeficit"],
+    "Stockholders Equity": ["StockholdersEquity",
+                            "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+    "Ordinary Shares Number": ["EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"],
+    "Total Debt": ["DebtLongtermAndShorttermCombinedAmount"],
+}
+SEC_CASHFLOW = {
+    "Operating Cash Flow": ["NetCashProvidedByUsedInOperatingActivities",
+                            "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+    "Depreciation And Amortization": ["DepreciationDepletionAndAmortization",
+                                      "DepreciationAmortizationAndAccretionNet"],
+    "Stock Based Compensation": ["ShareBasedCompensation"],
+    "Capital Expenditure": ["PaymentsToAcquirePropertyPlantAndEquipment"],
+    "Investing Cash Flow": ["NetCashProvidedByUsedInInvestingActivities"],
+    "Financing Cash Flow": ["NetCashProvidedByUsedInFinancingActivities"],
+    "Cash Dividends Paid": ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends"],
+    "Repurchase Of Capital Stock": ["PaymentsForRepurchaseOfCommonStock"],
+}
+SEC_ANNUAL_FORMS = ("10-K", "20-F", "40-F")
+SEC_QUARTER_FORMS = ("10-Q",)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _sec_cik(ticker: str):
+    """Maps a ticker to its SEC central index key. US listings only."""
+    base = (ticker or "").split(".")[0].upper().replace("-", "")
+    if not base or ("." in (ticker or "") and not ticker.upper().endswith(".US")):
+        return None
+    try:
+        data = _http_json("https://www.sec.gov/files/company_tickers.json",
+                          headers={"User-Agent": SEC_HEADERS["User-Agent"]})
+    except Exception as exc:
+        note_error("sec ticker map", exc)
+        return None
+    for row in (data or {}).values():
+        if str(row.get("ticker", "")).upper().replace("-", "") == base:
+            return f"CIK{int(row['cik_str']):010d}"
+    return None
+
+
+def _sec_series(facts: dict, tags, instant: bool, forms) -> pd.Series:
+    """One concept's reported values, keyed by period end.
+
+    Duration facts (revenue, cash flow) are filtered by how long the period they
+    cover actually is, because the same tag carries quarterly, half-year and
+    annual values in the same list and only the period length separates them."""
+    namespaces = (facts or {}).get("facts", {})
+    pool = {}
+    for ns in ("us-gaap", "ifrs-full", "dei"):
+        pool.update(namespaces.get(ns, {}))
+    for tag in tags:
+        node = pool.get(tag)
+        if not node:
+            continue
+        for unit in ("USD", "USD/shares", "shares"):
+            entries = node.get("units", {}).get(unit)
+            if not entries:
+                continue
+            out = {}
+            for e in entries:
+                if e.get("form") not in forms or e.get("val") is None or not e.get("end"):
+                    continue
+                if not instant:
+                    if not e.get("start"):
+                        continue
+                    span = (pd.Timestamp(e["end"]) - pd.Timestamp(e["start"])).days
+                    ok = (330 <= span <= 400) if forms == SEC_ANNUAL_FORMS else (60 <= span <= 110)
+                    if not ok:
+                        continue
+                out[pd.Timestamp(e["end"])] = float(e["val"])
+            if out:
+                return pd.Series(out).sort_index()
+    return None
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_sec_statements(ticker: str, quarterly: bool = False) -> dict:
+    """Income statement, balance sheet and cash flow rebuilt from EDGAR's XBRL
+    company facts, in the same shape as the primary source's."""
+    empty = {"inc": pd.DataFrame(), "bs": pd.DataFrame(), "cf": pd.DataFrame()}
+    cik = _sec_cik(ticker)
+    if not cik:
+        return empty
+    try:
+        facts = _http_json(f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json",
+                           timeout=20, headers={"User-Agent": SEC_HEADERS["User-Agent"]})
+    except Exception as exc:
+        note_error("sec companyfacts", exc)
+        return empty
+    forms = SEC_QUARTER_FORMS if quarterly else SEC_ANNUAL_FORMS
+
+    def build(mapping, instant, extra_maps=()):
+        cols = {}
+        for name, tags in mapping.items():
+            series = _sec_series(facts, tags, instant, forms)
+            if series is not None:
+                cols[name] = series
+        for mapping_extra in extra_maps:
+            for name, tags in mapping_extra.items():
+                series = _sec_series(facts, tags, instant, forms)
+                if series is not None:
+                    cols[name] = series
+        return pd.DataFrame(cols).sort_index() if cols else pd.DataFrame()
+
+    inc = build(SEC_INCOME, instant=False, extra_maps=(SEC_INCOME_PERSHARE, SEC_INCOME_SHARES))
+    bs = build(SEC_BALANCE, instant=True)
+    cf = build(SEC_CASHFLOW, instant=False)
+    # EDGAR reports capital expenditure as a positive outflow; the rest of the
+    # app follows the cash-flow-statement convention of a negative number.
+    if not cf.empty and "Capital Expenditure" in cf.columns:
+        cf["Capital Expenditure"] = -cf["Capital Expenditure"].abs()
+        if "Operating Cash Flow" in cf.columns:
+            cf["Free Cash Flow"] = cf["Operating Cash Flow"] + cf["Capital Expenditure"]
+    if not inc.empty and {"Total Revenue", "Cost Of Revenue"}.issubset(inc.columns) \
+            and "Gross Profit" not in inc.columns:
+        inc["Gross Profit"] = inc["Total Revenue"] - inc["Cost Of Revenue"]
+    return {"inc": inc, "bs": bs, "cf": cf}
+
+
 # --- cached loaders ----------------------------------------------------------
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -763,12 +1035,31 @@ def load_statements(ticker: str, quarterly: bool = False) -> dict:
             out[key] = _norm_stmt(getattr(t, attr))
         except Exception:
             out[key] = pd.DataFrame()
+    if any(not frame.empty for frame in out.values()):
+        note_source("financial statements", DATA_SOURCE)
+        return out
+    backup = load_sec_statements(ticker, quarterly)
+    if any(not frame.empty for frame in backup.values()):
+        note_source("financial statements", "SEC EDGAR (XBRL company facts)")
+        return backup
     return out
 
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_history(ticker: str, period: str = "1y", interval: str = "1d") -> pd.DataFrame:
-    return _fetch_history(ticker, period, interval)
+    df = _fetch_history(ticker, period, interval)
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        note_source("price history", DATA_SOURCE)
+        return df
+    # Intraday intervals have no equivalent on the daily-only backup, so this
+    # only rescues daily-and-longer requests - which is all of them except the
+    # shortest chart period.
+    if interval in ("1d", "1wk", "1mo"):
+        backup = _stooq_window(ticker, period)
+        if not backup.empty:
+            note_source("price history", "Stooq")
+            return backup
+    return df
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -1636,6 +1927,12 @@ class Company:
             series = h["Close"].dropna()
             if not series.empty:
                 return float(series.iloc[-1])
+        backup = _stooq_history(self.ticker)
+        if not backup.empty and "Close" in backup:
+            series = backup["Close"].dropna()
+            if not series.empty:
+                note_source("price", "Stooq")
+                return float(series.iloc[-1])
         return None
 
     @cached_property
@@ -1684,7 +1981,8 @@ class Company:
 
         shares = merged.get("sharesOutstanding")
         if not _isnum(shares):
-            shares = latest(bs, "Ordinary Shares Number", "Share Issued")
+            shares = (latest(bs, "Ordinary Shares Number", "Share Issued")
+                      or latest(inc, "Diluted Average Shares", "Basic Average Shares"))
             put("sharesOutstanding", shares)
         mcap = merged.get("marketCap")
         if not _isnum(mcap) and _isnum(price) and _isnum(shares):
@@ -2859,6 +3157,7 @@ INTERVALS = {"5d": "15m", "1mo": "60m", "3mo": "1d", "6mo": "1d", "ytd": "1d",
              "1y": "1d", "3y": "1wk", "5y": "1wk", "10y": "1mo", "max": "1mo"}
 
 st.session_state[_LOAD_ERRORS_KEY] = []
+st.session_state[SOURCE_LOG_KEY] = {}
 
 
 def monogram(name: str) -> str:
@@ -2980,9 +3279,14 @@ always shown, because a model where 90% of value sits beyond the forecast horizo
 <b>Scores.</b> The composite score is a weighted average of five pillars, each an average of the
 sub-metrics that could be computed. Missing inputs are skipped and weights renormalise. It is a
 screening aid, not a recommendation.<br><br>
-<b>Data.</b> Everything comes from a single free source and can contain gaps, restatements and
-classification quirks, particularly outside the United States. Figures should be verified against filings
-before anything consequential rests on them.
+<b>Data.</b> The primary source is Yahoo Finance, which rate-limits by source address — so two independent
+backups stand behind it, neither needing an API key. <b>Stooq</b> supplies daily price history for most
+developed markets when Yahoo's price endpoint is throttled. <b>SEC EDGAR's XBRL company-facts API</b> supplies
+the statements themselves, straight from the regulator, for companies that file in the United States. When
+even the quote endpoint is empty, the headline metrics are recomputed from those statements, and the page says
+which figures were computed rather than quoted. Whichever source answered is named in the provenance panel at
+the foot of every view. All of it can still contain gaps, restatements and classification quirks, particularly
+outside the United States — verify against the primary filing before anything consequential rests on a number.
 </div></div>""", unsafe_allow_html=True)
     st.markdown(f"<div class='foot'>{APP_NAME} · Data: {DATA_SOURCE} · "
                 f"Educational use only, not investment advice.</div>", unsafe_allow_html=True)
@@ -6327,7 +6631,12 @@ with x1:
 with x2:
     with st.expander("Data provenance", expanded=False):
         rows = [
-            ("Source", DATA_SOURCE),
+            ("Primary source", DATA_SOURCE),
+            ("Served by", ", ".join(f"{k}: {v}" for k, v in
+                                    (st.session_state.get(SOURCE_LOG_KEY) or {}).items())
+                          or "everything on this page came from the in-session cache"),
+            ("Backups available", "Stooq (prices, most developed markets) · "
+                                  "SEC EDGAR XBRL (statements, US filers)"),
             ("Quote endpoint", f"{quote_fields} of {len(QUOTE_METRICS)} headline metrics returned"),
             ("Primary filings", (f"<a href='{filing_source(co.ticker)['url']}' target='_blank'>"
                                  f"{filing_source(co.ticker)['name']}</a>"
