@@ -46,6 +46,18 @@ universe is bundled with the app:
   routine on shared cloud hosting — the headline metrics are recomputed from the
   company's own filings, and the page says which figures were computed rather
   than quoted.
+* **Two independent backup providers**, neither needing an API key, so they work
+  on any deployment without configuration:
+  * **Stooq** — daily price history for most developed markets, used whenever
+    Yahoo's price endpoint returns nothing.
+  * **SEC EDGAR XBRL company facts** — the filings themselves, from the
+    regulator, used whenever Yahoo returns no financial statements for a US
+    filer. Income statement, balance sheet and cash flow are rebuilt from the
+    reported XBRL concepts into the same shape the rest of the app expects.
+
+  Whichever source answered is named in the provenance panel at the foot of
+  every view. With Yahoo entirely unavailable, the executive dashboard still
+  renders 20 of its 29 metric tiles from these two.
 * **Primary sources are linked per market**, with that market's own reporting
   rhythm: SEC EDGAR for the US, HOSE and Vietstock for Vietnam, EDINET for
   Japan, HKEXnews for Hong Kong, and so on.
