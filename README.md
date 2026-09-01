@@ -55,6 +55,11 @@ universe is bundled with the app:
     filer. Income statement, balance sheet and cash flow are rebuilt from the
     reported XBRL concepts into the same shape the rest of the app expects.
 
+  * **Exchange rates** come from Yahoo, then the open ExchangeRate-API endpoint
+    (which carries currencies the ECB feed does not, the Vietnamese dong among
+    them), then Frankfurter's ECB reference rates. The rate actually applied and
+    the provider that supplied it are stated in the page header.
+
   Whichever source answered is named in the provenance panel at the foot of
   every view. With Yahoo entirely unavailable, the executive dashboard still
   renders 20 of its 29 metric tiles from these two.

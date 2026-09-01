@@ -1096,7 +1096,7 @@ def load_batch_close(tickers: tuple, start, end) -> pd.DataFrame:
 
 
 class CurrencyFX:
-    """Currency conversion.
+    """Currency conversion, with three independent providers behind it.
 
     Two things make this trickier than a single ticker lookup:
     1. Yahoo quotes EUR/GBP/AUD/NZD as "{CUR}USD=X" (base currency first), but
@@ -1105,11 +1105,15 @@ class CurrencyFX:
     2. Many UK-listed tickers report their price AND their `currency` field in
        pence ("GBp"/"GBX"), not pounds; 1 GBP = 100 GBp. "USDGBp=X" does not
        exist on Yahoo, so a naive lookup falls back to 1.0 - wrong by ~100x.
+
+    The pence handling sits at the top, so every provider only has to answer one
+    question: how many units of B is one unit of A.
     """
 
     MAJORS = ("EUR", "GBP", "AUD", "NZD")
     PENCE = ("GBp", "GBX")
 
+    # -- provider 1: Yahoo -----------------------------------------------------
     @staticmethod
     def _usd_per_unit(curr: str):
         if curr == "USD":
@@ -1128,32 +1132,92 @@ class CurrencyFX:
         return None
 
     @staticmethod
+    def _from_yahoo(a: str, b: str):
+        ua, ub = CurrencyFX._usd_per_unit(a), CurrencyFX._usd_per_unit(b)
+        return (ua / ub) if (ua and ub) else None
+
+    # -- provider 2: the open ExchangeRate-API endpoint ------------------------
+    @staticmethod
+    def _from_erapi(a: str, b: str):
+        """No key, no registration, and it carries the currencies the ECB feed
+        does not — the Vietnamese dong among them."""
+        try:
+            data = _http_json(f"https://open.er-api.com/v6/latest/{urllib.parse.quote(a)}", timeout=8)
+        except Exception as exc:
+            note_error("fx (open.er-api.com)", exc)
+            return None
+        if not isinstance(data, dict) or data.get("result") != "success":
+            return None
+        rate = (data.get("rates") or {}).get(b)
+        return float(rate) if _isnum(rate) and rate > 0 else None
+
+    # -- provider 3: Frankfurter, published from ECB reference rates -----------
+    @staticmethod
+    def _from_frankfurter(a: str, b: str):
+        """Official ECB reference rates. Majors only, but authoritative, and it
+        stays up when the commercial feeds are throttling."""
+        try:
+            data = _http_json(
+                f"https://api.frankfurter.app/latest?from={urllib.parse.quote(a)}"
+                f"&to={urllib.parse.quote(b)}", timeout=8)
+        except Exception as exc:
+            note_error("fx (frankfurter.app)", exc)
+            return None
+        rate = (data or {}).get("rates", {}).get(b)
+        return float(rate) if _isnum(rate) and rate > 0 else None
+
+    PROVIDERS = (("Yahoo Finance", "_from_yahoo"),
+                 ("open.er-api.com", "_from_erapi"),
+                 ("Frankfurter (ECB)", "_from_frankfurter"))
+
+    @staticmethod
     def rate(from_curr: str, to_curr: str):
-        """Returns the multiplier, or None when the pair genuinely could not be
-        resolved. Never silently returns 1.0 for a real cross-currency pair."""
-        if not from_curr or not to_curr:
-            return 1.0
-        if from_curr == to_curr:
-            return 1.0
+        return CurrencyFX.rate_with_source(from_curr, to_curr)[0]
+
+    @staticmethod
+    def rate_with_source(from_curr: str, to_curr: str):
+        """(multiplier, provider name), or (None, None) when no provider could
+        resolve the pair. Never silently returns 1.0 for a genuine
+        cross-currency pair. The provider is returned rather than logged so it
+        survives caching: a logged note only fires on a cache miss."""
+        if not from_curr or not to_curr or from_curr == to_curr:
+            return 1.0, None
         pence_from, pence_to = from_curr in CurrencyFX.PENCE, to_curr in CurrencyFX.PENCE
         a = "GBP" if pence_from else from_curr
         b = "GBP" if pence_to else to_curr
         if a == b and pence_from == pence_to:
-            return 1.0
-        ua, ub = CurrencyFX._usd_per_unit(a), CurrencyFX._usd_per_unit(b)
-        if ua is None or ub is None:
-            return None
-        r = ua / ub
+            return 1.0, None
+        used = None
+        if a == b:
+            r = 1.0
+        else:
+            r = None
+            for label, method in CurrencyFX.PROVIDERS:
+                try:
+                    candidate = getattr(CurrencyFX, method)(a, b)
+                except Exception as exc:
+                    note_error(f"fx ({label})", exc)
+                    candidate = None
+                if _isnum(candidate) and candidate > 0:
+                    r, used = candidate, label
+                    break
+            if r is None:
+                return None, None
         if pence_from:
             r /= 100.0
         if pence_to:
             r *= 100.0
-        return r
+        return r, used
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def load_fx_detail(from_curr: str, to_curr: str) -> dict:
+    rate, source = CurrencyFX.rate_with_source(from_curr, to_curr)
+    return {"rate": rate, "source": source}
+
+
 def load_fx(from_curr: str, to_curr: str):
-    return CurrencyFX.rate(from_curr, to_curr)
+    return load_fx_detail(from_curr, to_curr)["rate"]
 
 
 CURRENCY_SYMBOLS = {
@@ -3220,7 +3284,8 @@ with st.sidebar:
     interval = INTERVALS.get(period, "1d")
     basis = segmented("Statement basis", ["Annual", "Quarterly", "TTM"], key="basis_sel", default_index=0,
                       help="Annual and quarterly are as reported; TTM sums the last four reported quarters.")
-    currency_mode = st.selectbox("Display currency", ["Native", "USD", "EUR", "VND", "GBP", "JPY"], index=0)
+    currency_mode = st.selectbox("Display currency", ["Native", "USD", "EUR", "VND", "GBP", "JPY"],
+                                 index=0, key="currency_mode")
 
     st.markdown("<div class='side-group'>Presentation</div>", unsafe_allow_html=True)
     st.selectbox("Theme", list(THEMES.keys()), key="theme")
@@ -3322,6 +3387,22 @@ if fx is None:
                f"is shown in the native currency ({native_currency}).")
 sym = CURRENCY_SYMBOLS.get(target_currency, target_currency + " ")
 
+# One line that always says what was applied, rather than falling silent when no
+# conversion happened — silence reads as a missing figure, not as "none needed".
+fx_source = load_fx_detail(native_currency, target_currency).get("source")
+if native_currency == target_currency:
+    fx_line = (f"Reported and shown in <b>{native_currency}</b> — no conversion applied"
+               + (f"; a live {currency_mode} rate was not available" if currency_mode != "Native" else ""))
+else:
+    # Quote the direction that reads naturally: "1 USD = 25,400 VND" rather
+    # than "1 VND = 3.94e-05 USD".
+    if fx and fx < 0.01:
+        rate_text = f"1 {target_currency} = {1 / fx:,.2f} {native_currency}"
+    else:
+        rate_text = f"1 {native_currency} = {fx:,.4f} {target_currency}"
+    fx_line = (f"Reported in <b>{native_currency}</b> · shown in <b>{target_currency}</b> at "
+               f"<b>{rate_text}</b>" + (f" · via {fx_source}" if fx_source else ""))
+
 extras = compute_extras(co)
 
 # --- Header ------------------------------------------------------------------
@@ -3339,8 +3420,7 @@ with h_left:
             f"<span class='hdr-chip'>{co.sector}</span>"
             f"<span class='hdr-chip'>{co.industry}</span>"
             f"<span class='hdr-chip'>{info.get('exchange', Fmt.NA)}</span>"
-            f"Reported in {native_currency} · shown in {target_currency}"
-            f"{'' if native_currency == target_currency else f' at {fx:,.4f}'}</div>",
+            f"{fx_line}</div>",
             unsafe_allow_html=True)
 
 with h_right:
@@ -3611,11 +3691,33 @@ position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
                 empty_state("No valuation multiples reported.", "Common for loss-making or thinly covered names.")
         with vc2:
             target = info.get("targetMeanPrice")
-            rec = (info.get("recommendationKey") or "none").replace("_", " ").title()
+            raw_rec = (info.get("recommendationKey") or "").strip().lower()
+            analysts = info.get("numberOfAnalystOpinions")
+            mean_rec = info.get("recommendationMean")
+            # "none" is what the feed returns for an uncovered company, and it is
+            # also what it returns when the quote endpoint was throttled. Neither
+            # should render as the word "None" beside a real-looking figure.
+            if raw_rec and raw_rec != "none":
+                rec = raw_rec.replace("_", " ").title()
+            elif _isnum(mean_rec):
+                # 1 = strong buy … 5 = strong sell, on the provider's own scale.
+                rec = ("Strong buy" if mean_rec < 1.5 else "Buy" if mean_rec < 2.5
+                       else "Hold" if mean_rec < 3.5 else "Underperform" if mean_rec < 4.5 else "Sell")
+            else:
+                rec = "Not covered"
+            if _isnum(analysts) and analysts > 0:
+                rec_sub = f"{int(analysts)} contributing analyst{'s' if analysts != 1 else ''}"
+            elif rec == "Not covered":
+                rec_sub = ("No analyst view in the feed — either nobody publishes on this listing, or the "
+                           "quote endpoint was throttled when this page loaded")
+            else:
+                rec_sub = "Analyst count not reported"
             upside = (safe_div(target, co.price) or 1) - 1 if _isnum(target) else None
             kpi_grid([
-                {"label": "Analyst consensus", "value": rec,
-                 "sub": f"{info.get('numberOfAnalystOpinions', Fmt.NA)} contributing analysts", "tone": "flat"},
+                {"label": "Analyst consensus", "value": rec, "sub": rec_sub,
+                 "tone": "flat" if rec == "Not covered" else
+                         ("good" if "buy" in rec.lower() else "bad" if rec.lower() in ("sell", "underperform")
+                          else "warn")},
                 {"label": "Mean target price", "value": Fmt.price(conv(target, fx), sym),
                  "sub": f"{Fmt.as_pct(upside, signed=True)} versus the current price" if upside is not None else "",
                  "tone": tone_for((upside or 0) * 100 if upside is not None else None, 10, -5)},
