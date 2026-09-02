@@ -9,6 +9,22 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Deployment
+
+The app runs on [Streamlit Community Cloud](https://share.streamlit.io), which
+follows `main` and rebuilds on every push. Point it at this repository and pick
+`app.py` as the entry point; no other configuration is needed.
+
+It cannot be hosted on a serverless platform. Streamlit is a long-running server
+that holds a websocket open to each browser session, so a runtime that invokes a
+function per request — Vercel's Python runtime among them — has nothing to call.
+Any host that runs a persistent process works: Render, Railway, Fly.io, Cloud
+Run, or a container anywhere, started with:
+
+```bash
+streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+```
+
 ## Modules
 
 | # | Module | Answers |
