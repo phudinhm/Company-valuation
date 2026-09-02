@@ -14,21 +14,23 @@ streamlit run app.py
 | # | Module | Answers |
 |---|--------|---------|
 | 00 | Guide & Method | How each module works, and the assumptions behind every calculated figure. |
-| 01 | Executive Dashboard | Composite screen, headline metrics, margin and return decomposition, dividends, earnings-quality flags. |
-| 02 | Technical Analysis | Trend, momentum, volatility — and a forward projection from three independent methods. |
-| 03 | Financial Statements | Reported line items on an Annual, Quarterly or TTM basis, common-size figures beside live industry medians, a line-by-line explanation of every reported item, and a link to the market's primary filing source. |
-| 04 | Cash Flow Quality | Whether reported profit turns into cash, and what it costs to keep the business running. |
-| 05 | Capital Allocation | ROIC against WACC, incremental return on new capital, and a waterfall of where the cash actually went. |
-| 06 | Solvency & Debt | Maturity profile, leverage, interest cover, and a refinancing stress test at higher rates. |
-| 07 | Dilution & Owner Earnings | Share-count creep, stock compensation as a share of revenue and cash flow, and free cash flow per share after it. |
-| 08 | Intrinsic Valuation | Three-phase DCF, reverse DCF, scenarios, sensitivity grid, cross-method summary. |
-| 09 | Peer Comparables | Percentile ranking, growth-versus-valuation regression, peer-implied price ranges. |
-| 10 | Compare Companies | Two or more companies side by side: rebased performance, comparison matrix, profile scores, return correlation. |
-| 11 | Risk & Scenarios | Volatility, drawdown, value at risk, expected shortfall, Monte Carlo simulation. |
-| 12 | Investment Simulator | What a lump sum, or a monthly contribution, invested on a past date would be worth now. |
-| 13 | Portfolio | Allocation against policy targets, drift, concentration guardrails, time-weighted and money-weighted return, benchmark comparison. |
-| 14 | Price & Capital Dynamics | Price against market cap, an automatically assembled wall of worry, and the enterprise value bridge. |
-| 15 | Market Leaders | Cross-company ranking by size and revenue, with three-year trajectories. |
+| 01 | Executive Dashboard | Composite screen, headline metrics, margins and returns, dividends, analyst consensus and price targets, quality flags. |
+| 02 | Key Statistics | The full statistics sheet: profitability, management effectiveness, income statement, balance sheet, cash flow, trading history, share statistics, dividends and splits. |
+| 03 | Estimates & Revisions | Revenue and earnings estimates, the beat-and-miss record against them, quarterly revenue versus earnings with the margin line, EPS trend and revision counts. |
+| 04 | Technical Analysis | Trend, momentum, volatility — and a forward projection from three independent methods. |
+| 05 | Financial Statements | Reported line items on an Annual, Quarterly or TTM basis, common-size figures beside live industry medians, a line-by-line explanation of every item, and the market's primary filing source. |
+| 06 | Cash Flow Quality | Whether reported profit turns into cash, and what it costs to keep the business running. |
+| 07 | Capital Allocation | ROIC against WACC, incremental return on new capital, and where the cash actually went. |
+| 08 | Solvency & Debt | Maturity profile, leverage, interest cover, and a refinancing stress test at higher rates. |
+| 09 | Dilution & Owner Earnings | Share-count creep, stock compensation, and free cash flow per share after it. |
+| 10 | Intrinsic Valuation | Three-phase DCF, reverse DCF, scenarios, sensitivity grid, cross-method summary. |
+| 11 | Peer Comparables | Percentile ranking, growth-versus-valuation regression, peer-implied price ranges. |
+| 12 | Compare Companies | Two or more companies side by side: rebased performance, comparison matrix, profile scores, return correlation. |
+| 13 | Risk & Scenarios | Volatility, drawdown, value at risk, expected shortfall, Monte Carlo simulation. |
+| 14 | Investment Simulator | What a lump sum, or a monthly contribution, invested on a past date would be worth now. |
+| 15 | Portfolio | Allocation against policy targets, drift, concentration guardrails, time-weighted and money-weighted return. |
+| 16 | Price & Capital Dynamics | Price against market cap, an automatic wall of worry, news from three feeds plus generated search terms, and the EV bridge. |
+| 17 | Market Leaders | Cross-company ranking by size and revenue, global or within one market, with three-year trajectories. |
 
 ## Coverage
 
@@ -46,6 +48,14 @@ universe is bundled with the app:
   routine on shared cloud hosting — the headline metrics are recomputed from the
   company's own filings, and the page says which figures were computed rather
   than quoted.
+* **News comes from three routes** — the provider's per-ticker feed, its search
+  endpoint, and Google News RSS queried by company *name* rather than symbol,
+  which is what finds coverage for listings the financial feeds ignore. When
+  every feed is empty the app generates search terms from the company's own
+  name, sector and industry, each linked to a live search.
+* **Analyst data comes from the coverage endpoints**, not from the quote
+  response — consensus, price target range, estimates, the beat-and-miss record,
+  EPS trend and revision counts are all published separately from `info`.
 * **Two independent backup providers**, neither needing an API key, so they work
   on any deployment without configuration:
   * **Stooq** — daily price history for most developed markets, used whenever

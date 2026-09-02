@@ -713,7 +713,19 @@ def _norm_stmt(df) -> pd.DataFrame:
         out = out.sort_index(ascending=True)
     except Exception:
         pass
-    return out.loc[:, ~out.columns.duplicated()]
+    out = out.loc[:, ~out.columns.duplicated()]
+    # The oldest reported period is frequently an empty column: the provider
+    # carries the header but no values for it, after a restatement or simply
+    # because its history does not reach that far. Dropping it here, once, stops
+    # every chart downstream opening with a blank year.
+    out = out.dropna(axis=0, how="all")
+    if not out.empty:
+        coverage = out.notna().sum(axis=1)
+        # A period reporting fewer than a fifth of the line items the fullest
+        # period does is a stub rather than a reporting period.
+        keep = coverage >= max(1, int(coverage.max() * 0.2))
+        out = out[keep]
+    return out
 
 
 # --- Backup sources ----------------------------------------------------------
@@ -1371,6 +1383,80 @@ def _parse_news_item(n):
         return None
 
 
+def _frame(obj) -> pd.DataFrame:
+    """These endpoints usually return a DataFrame, but any of them can come back
+    as None, as a dict, or empty, depending on coverage and library version."""
+    if isinstance(obj, pd.DataFrame):
+        return obj
+    if isinstance(obj, dict) and obj:
+        try:
+            return pd.DataFrame(obj)
+        except Exception:
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_analyst(ticker: str) -> dict:
+    """Everything the analyst endpoints carry, fetched in one place.
+
+    None of this lives in the quote response, which is why a company with full
+    coverage could still read "not covered": the app was only ever asking
+    `info`. Each endpoint is fetched independently, so one failing does not
+    cost the others."""
+    t = yf.Ticker(ticker)
+    out = {}
+
+    def grab(key, attr, frame=True):
+        try:
+            value = getattr(t, attr)
+        except Exception as exc:
+            note_error(f"analyst {attr}", exc)
+            out[key] = pd.DataFrame() if frame else {}
+            return
+        out[key] = _frame(value) if frame else (value if isinstance(value, dict) else {})
+
+    grab("price_targets", "analyst_price_targets", frame=False)
+    grab("recommendations", "recommendations")
+    grab("upgrades", "upgrades_downgrades")
+    grab("earnings_estimate", "earnings_estimate")
+    grab("revenue_estimate", "revenue_estimate")
+    grab("earnings_history", "earnings_history")
+    grab("eps_trend", "eps_trend")
+    grab("eps_revisions", "eps_revisions")
+    grab("growth_estimates", "growth_estimates")
+    try:
+        cal = t.calendar
+        out["calendar"] = cal if isinstance(cal, dict) else {}
+    except Exception:
+        out["calendar"] = {}
+    return out
+
+
+def consensus_from_recommendations(recs: pd.DataFrame):
+    """Consensus label and analyst count from the recommendation grid, which is
+    published even when `recommendationKey` is absent.
+
+    The grid holds counts per rating for the current month and the three before
+    it; the most recent row carrying any votes is the live view."""
+    if not isinstance(recs, pd.DataFrame) or recs.empty:
+        return None, None, None
+    weights = {"strongBuy": 1.0, "buy": 2.0, "hold": 3.0, "sell": 4.0, "strongSell": 5.0}
+    present = [c for c in weights if c in recs.columns]
+    if not present:
+        return None, None, None
+    for _, row in recs.iterrows():
+        counts = {c: float(row[c]) for c in present if _isnum(row[c])}
+        total = sum(counts.values())
+        if total <= 0:
+            continue
+        score = sum(counts[c] * weights[c] for c in counts) / total
+        label = ("Strong buy" if score < 1.5 else "Buy" if score < 2.5 else "Hold"
+                 if score < 3.5 else "Underperform" if score < 4.5 else "Sell")
+        return label, int(total), score
+    return None, None, None
+
+
 def _fetch_news(ticker, max_items):
     out = []
     try:
@@ -1378,20 +1464,121 @@ def _fetch_news(ticker, max_items):
             parsed = _parse_news_item(n)
             if parsed:
                 out.append(parsed)
-    except Exception:
-        pass
+    except Exception as exc:
+        note_error("news (Yahoo)", exc)
     return out
 
 
+def _fetch_news_search(query, max_items):
+    """Yahoo's search endpoint carries news alongside quotes, and answers even
+    when the per-ticker news feed is empty."""
+    out = []
+    try:
+        articles = yf.Search(query, max_results=0, news_count=max_items,
+                             lists_count=0, raise_errors=False).news or []
+        for n in articles[:max_items]:
+            parsed = _parse_news_item(n)
+            if parsed:
+                out.append(parsed)
+    except Exception as exc:
+        note_error("news (Yahoo search)", exc)
+    return out
+
+
+def google_news_url(query: str, rss: bool = False) -> str:
+    """A Google News query for a company. Used both as a live RSS source and as
+    the link handed to the reader when no feed returns anything."""
+    q = urllib.parse.quote_plus(query)
+    base = "https://news.google.com/rss/search" if rss else "https://news.google.com/search"
+    return f"{base}?q={q}&hl=en-US&gl=US&ceid=US:en"
+
+
+def _fetch_google_news(query, max_items):
+    """Google News RSS: free, keyless, and indexed far more broadly than the
+    provider's own feed - which is what makes it worth having for listings
+    outside the US, where the per-ticker feed is empty most of the time."""
+    out = []
+    try:
+        xml_text = _http_text(google_news_url(query, rss=True), timeout=10)
+    except Exception as exc:
+        note_error("news (Google News)", exc)
+        return out
+    try:
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(xml_text)
+    except Exception:
+        return out
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        if not title:
+            continue
+        source_el = item.find("source")
+        source = (source_el.text or "").strip() if source_el is not None else ""
+        # Google appends " - Publisher" to the headline; drop it once the
+        # publisher is shown in its own right.
+        if source and title.endswith(f" - {source}"):
+            title = title[: -(len(source) + 3)]
+        published = None
+        raw_date = item.findtext("pubDate")
+        if raw_date:
+            try:
+                published = pd.to_datetime(raw_date).tz_localize(None).to_pydatetime()
+            except Exception:
+                published = None
+        out.append({"title": title, "publisher": source or "Google News",
+                    "link": (item.findtext("link") or "").strip(), "time": published})
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def news_keywords(company_name: str, ticker: str, sector: str = "", industry: str = ""):
+    """Search terms built from what is actually known about the company, so the
+    reader can carry the query elsewhere when every feed comes back empty."""
+    base = re.sub(r"\b(inc|corp|corporation|company|co|plc|ltd|limited|holdings?|group|"
+                  r"ag|sa|nv|se|jsc)\b\.?", "", company_name or "", flags=re.I).strip(" ,.")
+    base = base or ticker
+    stem = ticker.split(".")[0]
+    terms = [f"{base} earnings", f"{base} stock", f"{stem} share price"]
+    if industry and industry != Fmt.NA:
+        terms.append(f"{base} {industry}")
+    elif sector and sector != Fmt.NA:
+        terms.append(f"{base} {sector}")
+    terms.append(f"{base} guidance outlook")
+    return base, terms
+
+
 @st.cache_data(ttl=900, show_spinner=False)
-def load_news(ticker: str, sector: str, max_items: int = 6):
+def load_news(ticker: str, sector: str, max_items: int = 6, company_name: str = ""):
     """Company headlines plus headlines for a representative sector ETF.
-    Both legs are fetched in parallel; refreshed every 15 minutes."""
+
+    Three routes, because the per-ticker feed is frequently empty - especially
+    outside the US, where it is empty most of the time. Google News RSS is
+    queried by company *name* rather than by symbol, which is why it finds
+    coverage the symbol-keyed feeds miss entirely."""
     etf = SECTOR_ETF_MAP.get(sector)
-    targets = [ticker] + ([etf] if etf else [])
-    results = parallel_map(lambda t: _fetch_news(t, max_items), targets, workers=2)
-    company = results[0] if results else []
-    sector_news = results[1] if len(results) > 1 else []
+    query_name = company_name or ticker
+
+    def company_route():
+        items = _fetch_news(ticker, max_items)
+        seen = {i["title"] for i in items}
+        if len(items) < max_items:
+            for extra in _fetch_google_news(f"{query_name} stock", max_items):
+                if extra["title"] not in seen:
+                    items.append(extra)
+                    seen.add(extra["title"])
+                if len(items) >= max_items:
+                    break
+        if not items:
+            items = _fetch_news_search(query_name, max_items)
+        return items
+
+    def sector_route():
+        if not etf:
+            return _fetch_google_news(f"{sector} sector stocks", max_items) if sector else []
+        return _fetch_news(etf, max_items) or _fetch_google_news(f"{sector} sector outlook", max_items)
+
+    company, sector_news = parallel_map(lambda fn: fn(), [company_route, sector_route], workers=2)
     return company, sector_news, etf
 
 
@@ -3184,7 +3371,9 @@ def segmented(label, options, key, default_index=0, help=None):
 MODULES = [
     ("Guide & Method", "How the terminal is put together and when to use each module."),
     ("Executive Dashboard", "One screen: composite score, valuation, profitability, health, dividends, quality flags."),
-    ("Technical Analysis", "Price action, trend, momentum and volatility."),
+    ("Key Statistics", "The full statistics sheet: profitability, balance sheet, trading, share count, dividends."),
+    ("Estimates & Revisions", "Analyst revenue and earnings estimates, the beat-and-miss record, EPS trend and revisions."),
+    ("Technical Analysis", "Price action, trend, momentum, volatility and a forward projection."),
     ("Financial Statements", "Reported figures, line-by-line explanations and industry-relative common size."),
     ("Cash Flow Quality", "Whether reported profit actually converts into cash."),
     ("Capital Allocation", "Return on invested capital against the cost of it, and where the cash went."),
@@ -3690,26 +3879,34 @@ position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
             else:
                 empty_state("No valuation multiples reported.", "Common for loss-making or thinly covered names.")
         with vc2:
-            target = info.get("targetMeanPrice")
+            analyst = load_analyst(co.ticker)
+            targets = analyst.get("price_targets") or {}
+            rec_label, rec_count, rec_score = consensus_from_recommendations(analyst.get("recommendations"))
+
+            target = pick(targets, "mean", "median") if targets else None
+            if not _isnum(target):
+                target = info.get("targetMeanPrice")
+            low_t = targets.get("low") if _isnum(targets.get("low")) else info.get("targetLowPrice")
+            high_t = targets.get("high") if _isnum(targets.get("high")) else info.get("targetHighPrice")
+
             raw_rec = (info.get("recommendationKey") or "").strip().lower()
-            analysts = info.get("numberOfAnalystOpinions")
             mean_rec = info.get("recommendationMean")
-            # "none" is what the feed returns for an uncovered company, and it is
-            # also what it returns when the quote endpoint was throttled. Neither
-            # should render as the word "None" beside a real-looking figure.
-            if raw_rec and raw_rec != "none":
+            analysts = rec_count if _isnum(rec_count) else info.get("numberOfAnalystOpinions")
+            if rec_label:
+                rec = rec_label
+            elif raw_rec and raw_rec != "none":
                 rec = raw_rec.replace("_", " ").title()
             elif _isnum(mean_rec):
-                # 1 = strong buy … 5 = strong sell, on the provider's own scale.
                 rec = ("Strong buy" if mean_rec < 1.5 else "Buy" if mean_rec < 2.5
                        else "Hold" if mean_rec < 3.5 else "Underperform" if mean_rec < 4.5 else "Sell")
             else:
                 rec = "Not covered"
             if _isnum(analysts) and analysts > 0:
-                rec_sub = f"{int(analysts)} contributing analyst{'s' if analysts != 1 else ''}"
+                rec_sub = (f"{int(analysts)} analyst{'s' if analysts != 1 else ''}"
+                           + (f" · mean score {rec_score:,.2f} of 5" if _isnum(rec_score) else ""))
             elif rec == "Not covered":
-                rec_sub = ("No analyst view in the feed — either nobody publishes on this listing, or the "
-                           "quote endpoint was throttled when this page loaded")
+                rec_sub = ("No analyst view in any of the coverage endpoints — either nobody publishes on "
+                           "this listing, or every route was throttled when this page loaded")
             else:
                 rec_sub = "Analyst count not reported"
             upside = (safe_div(target, co.price) or 1) - 1 if _isnum(target) else None
@@ -3719,13 +3916,45 @@ position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
                          ("good" if "buy" in rec.lower() else "bad" if rec.lower() in ("sell", "underperform")
                           else "warn")},
                 {"label": "Mean target price", "value": Fmt.price(conv(target, fx), sym),
-                 "sub": f"{Fmt.as_pct(upside, signed=True)} versus the current price" if upside is not None else "",
+                 "sub": (f"Range {Fmt.price(conv(low_t, fx), sym)} – {Fmt.price(conv(high_t, fx), sym)}"
+                         if _isnum(low_t) and _isnum(high_t)
+                         else (f"{Fmt.as_pct(upside, signed=True)} versus the current price"
+                               if upside is not None else "")),
                  "tone": tone_for((upside or 0) * 100 if upside is not None else None, 10, -5)},
                 {"label": "Graham number", "value": Fmt.price(
-                    (Valuation.graham_number(info.get("trailingEps"), info.get("bookValue")) or 0) * fx
-                    if Valuation.graham_number(info.get("trailingEps"), info.get("bookValue")) else None, sym),
+                    conv(Valuation.graham_number(info.get("trailingEps"), info.get("bookValue")), fx), sym),
                  "sub": "Defensive-investor ceiling: √(22.5 × EPS × book value)", "tone": "flat"},
             ], min_width=210, record=False)
+
+            if _isnum(low_t) and _isnum(high_t) and _isnum(target) and co.price:
+                cur_p = co.price * fx
+                figt = go.Figure()
+                figt.add_trace(go.Scatter(x=[conv(low_t, fx), conv(high_t, fx)], y=["Target"],
+                                          mode="lines", line=dict(color=T["border"], width=10),
+                                          showlegend=False, hoverinfo="skip"))
+                for value, label, colour, symbol_ in (
+                        (conv(low_t, fx), "Low", T["faint"], "line-ns-open"),
+                        (conv(high_t, fx), "High", T["faint"], "line-ns-open"),
+                        (conv(target, fx), "Average", T["accent"], "circle"),
+                        (cur_p, "Current", T["text"], "circle")):
+                    figt.add_trace(go.Scatter(
+                        x=[value], y=["Target"], mode="markers+text", text=[f"{label}<br>{Fmt.price(value, sym)}"],
+                        textposition="top center" if label in ("Average", "High") else "bottom center",
+                        marker=dict(color=colour, size=14, symbol=symbol_, line=dict(width=2)),
+                        showlegend=False, hovertemplate=f"{label}: {Fmt.price(value, sym)}<extra></extra>"))
+                figt.update_yaxes(showticklabels=False)
+                figt.update_xaxes(title_text=f"Price ({sym})")
+                style_fig(figt, height=230, legend="off", margin=dict(l=10, r=10, t=42, b=10))
+                figure(figt, "Analyst price targets against the current price",
+                       "The published range of target prices — low, average and high — with today's price "
+                       "marked on the same scale.",
+                       "The **width of the bar** is the disagreement among analysts, and it is usually the "
+                       "more informative half. A tight range around the current price means consensus with "
+                       "little to argue about; a wide one means the same facts are being read very "
+                       "differently, which is where the opportunity and the risk both sit.",
+                       "Targets cluster around the current price and move after it, not before. Treat the "
+                       "spread as a map of opinion, not as a forecast.")
+
             note("Consensus targets are an input, not an answer: they cluster around the current price and "
                  "move after it, not before. Section 5 builds an independent value from cash flows.",
                  tone="neu", title="Reading this panel", record=False)
@@ -3956,6 +4185,460 @@ alongside thin cover is usually the market pricing in a cut rather than an oppor
             f"<hr style='border:none;border-top:1px solid {T['border']};margin:14px 0'>"
             f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px'>"
             f"{fact_html}</div></div>", unsafe_allow_html=True)
+
+
+# ==============================================================================
+elif view == "Key Statistics":
+    section("Key statistics",
+            "The full sheet, in the order an analyst reads it. Anything the data provider does not carry is "
+            "computed from the reported statements where a definition allows it, and left as a dash where "
+            "it does not.")
+
+    inc_a, bs_a, cf_a = to_display(co.inc, fx), to_display(co.bs, fx), to_display(co.cf, fx)
+    q_inc, q_bs, q_cf = co.quarterly["inc"], co.quarterly["bs"], co.quarterly["cf"]
+    q_inc_d, q_bs_d, q_cf_d = to_display(q_inc, fx), to_display(q_bs, fx), to_display(q_cf, fx)
+    ttm_inc, ttm_bs, ttm_cf = (to_display(ttm_from_quarters(q_inc), fx),
+                               to_display(q_bs.tail(1), fx),
+                               to_display(ttm_from_quarters(q_cf), fx))
+    hist_2y = co.history("2y", "1d")
+
+    def epoch_date(key):
+        v = info.get(key)
+        if not _isnum(v):
+            return Fmt.NA
+        try:
+            return datetime.fromtimestamp(v).strftime("%d %b %Y")
+        except (ValueError, OSError, OverflowError):
+            return Fmt.NA
+
+    def ttm_or_annual(frame_ttm, frame_annual, name):
+        v = last(frame_ttm, name)
+        return v if _isnum(v) else last(frame_annual, name)
+
+    # -- values, preferring the quote, then TTM from quarterly, then annual ----
+    revenue_ttm = info.get("totalRevenue")
+    revenue_ttm = conv(revenue_ttm, fx) if _isnum(revenue_ttm) else ttm_or_annual(ttm_inc, inc_a, "Total Revenue")
+    gross_ttm = conv(info.get("grossProfits"), fx) if _isnum(info.get("grossProfits")) \
+        else ttm_or_annual(ttm_inc, inc_a, "Gross Profit")
+    ebitda_v = conv(info.get("ebitda"), fx) if _isnum(info.get("ebitda")) else None
+    if not _isnum(ebitda_v):
+        op = ttm_or_annual(ttm_inc, inc_a, "Operating Income")
+        da = ttm_or_annual(ttm_cf, cf_a, "Depreciation And Amortization")
+        ebitda_v = (op or 0) + (da or 0) if _isnum(op) else None
+    net_income_ttm = conv(info.get("netIncomeToCommon"), fx) if _isnum(info.get("netIncomeToCommon")) \
+        else ttm_or_annual(ttm_inc, inc_a, "Net Income")
+    ocf_ttm = conv(info.get("operatingCashflow"), fx) if _isnum(info.get("operatingCashflow")) \
+        else ttm_or_annual(ttm_cf, cf_a, "Operating Cash Flow")
+    fcf_ttm = conv(info.get("freeCashflow"), fx) if _isnum(info.get("freeCashflow")) \
+        else ttm_or_annual(ttm_cf, cf_a, "Free Cash Flow")
+    shares_out = co.shares
+    cash_mrq = conv(info.get("totalCash"), fx) if _isnum(info.get("totalCash")) \
+        else last(ttm_bs, "Cash And Cash Equivalents")
+    debt_mrq = conv(info.get("totalDebt"), fx) if _isnum(info.get("totalDebt")) \
+        else last(ttm_bs, "Total Debt")
+
+    def quarterly_yoy(frame, name):
+        """Same quarter a year earlier, which is the only like-for-like
+        comparison in a seasonal business."""
+        series = col(frame, name)
+        if series is None:
+            return None
+        series = series.dropna()
+        if len(series) < 5 or not series.iloc[-5]:
+            return None
+        return float(series.iloc[-1] / series.iloc[-5] - 1)
+
+    rev_growth_q = info.get("revenueGrowth") if _isnum(info.get("revenueGrowth")) \
+        else quarterly_yoy(q_inc_d, "Total Revenue")
+    eps_growth_q = info.get("earningsQuarterlyGrowth") if _isnum(info.get("earningsQuarterlyGrowth")) \
+        else quarterly_yoy(q_inc_d, "Net Income")
+
+    def ma(window):
+        key = {50: "fiftyDayAverage", 200: "twoHundredDayAverage"}[window]
+        if _isnum(info.get(key)):
+            return conv(info[key], fx)
+        if not hist_2y.empty and "Close" in hist_2y:
+            series = hist_2y["Close"].dropna()
+            if len(series) >= window:
+                return float(series.tail(window).mean()) * fx
+        return None
+
+    change_52w = info.get("52WeekChange")
+    if not _isnum(change_52w) and not hist_2y.empty and "Close" in hist_2y:
+        series = hist_2y["Close"].dropna()
+        year_ago = series[series.index <= series.index[-1] - pd.Timedelta(days=365)]
+        if not year_ago.empty and year_ago.iloc[-1]:
+            change_52w = float(series.iloc[-1] / year_ago.iloc[-1] - 1)
+    div = dividend_facts(info, co.price)
+
+    def rows_html(rows):
+        body = "".join(
+            f"<div style='display:grid;grid-template-columns:1fr auto;gap:16px;padding:7px 0;"
+            f"border-bottom:1px solid var(--border);font-size:14px'>"
+            f"<span style='color:var(--muted)'>{label}</span>"
+            f"<span style='font-family:\"IBM Plex Mono\",monospace;font-weight:600'>{value}</span></div>"
+            for label, value in rows)
+        return f"<div class='card'>{body}</div>"
+
+    def block(title, rows):
+        st.markdown(f"<div class='eyebrow' style='margin:16px 0 7px'>{title}</div>", unsafe_allow_html=True)
+        st.markdown(rows_html(rows), unsafe_allow_html=True)
+
+    left, right = st.columns(2)
+    with left:
+        block("Fiscal year", [
+            ("Fiscal year ends", epoch_date("lastFiscalYearEnd")),
+            ("Most recent quarter", epoch_date("mostRecentQuarter")),
+            ("Next earnings date", Fmt.date((load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date", [None])[0]
+                                            if isinstance((load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date"), list)
+                                            else (load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date"))),
+        ])
+        block("Profitability", [
+            ("Profit margin", Fmt.as_pct(info.get("profitMargins") if _isnum(info.get("profitMargins"))
+                                         else safe_div(net_income_ttm, revenue_ttm), 2)),
+            ("Operating margin (ttm)", Fmt.as_pct(info.get("operatingMargins") if _isnum(info.get("operatingMargins"))
+                                                  else safe_div(ttm_or_annual(ttm_inc, inc_a, "Operating Income"), revenue_ttm), 2)),
+            ("Gross margin", Fmt.as_pct(info.get("grossMargins") if _isnum(info.get("grossMargins"))
+                                        else safe_div(gross_ttm, revenue_ttm), 2)),
+        ])
+        block("Management effectiveness", [
+            ("Return on assets (ttm)", Fmt.as_pct(info.get("returnOnAssets") if _isnum(info.get("returnOnAssets"))
+                                                  else safe_div(net_income_ttm, last(ttm_bs, "Total Assets")), 2)),
+            ("Return on equity (ttm)", Fmt.as_pct(info.get("returnOnEquity") if _isnum(info.get("returnOnEquity"))
+                                                  else safe_div(net_income_ttm, last(ttm_bs, "Stockholders Equity")), 2)),
+        ])
+        block("Income statement", [
+            ("Revenue (ttm)", Fmt.money(revenue_ttm, sym)),
+            ("Revenue per share (ttm)", Fmt.price(conv(info.get("revenuePerShare"), fx)
+                                                  if _isnum(info.get("revenuePerShare"))
+                                                  else safe_div(revenue_ttm, shares_out), sym)),
+            ("Quarterly revenue growth (yoy)", Fmt.as_pct(rev_growth_q, 2, signed=True)),
+            ("Gross profit (ttm)", Fmt.money(gross_ttm, sym)),
+            ("EBITDA", Fmt.money(ebitda_v, sym)),
+            ("Net income to common (ttm)", Fmt.money(net_income_ttm, sym)),
+            ("Diluted EPS (ttm)", Fmt.price(conv(info.get("trailingEps"), fx), sym)),
+            ("Quarterly earnings growth (yoy)", Fmt.as_pct(eps_growth_q, 2, signed=True)),
+        ])
+        block("Balance sheet", [
+            ("Total cash (mrq)", Fmt.money(cash_mrq, sym)),
+            ("Total cash per share (mrq)", Fmt.price(safe_div(cash_mrq, shares_out), sym)),
+            ("Total debt (mrq)", Fmt.money(debt_mrq, sym)),
+            ("Total debt / equity (mrq)", Fmt.pct(info.get("debtToEquity") if _isnum(info.get("debtToEquity"))
+                                                  else (safe_div(debt_mrq, last(ttm_bs, "Stockholders Equity")) or 0) * 100, 2)),
+            ("Current ratio (mrq)", Fmt.ratio(info.get("currentRatio") if _isnum(info.get("currentRatio"))
+                                              else safe_div(last(ttm_bs, "Current Assets"),
+                                                            last(ttm_bs, "Current Liabilities")), 2, suffix="")),
+            ("Book value per share (mrq)", Fmt.price(conv(info.get("bookValue"), fx) if _isnum(info.get("bookValue"))
+                                                     else safe_div(last(ttm_bs, "Stockholders Equity"), shares_out), sym)),
+        ])
+        block("Cash flow statement", [
+            ("Operating cash flow (ttm)", Fmt.money(ocf_ttm, sym)),
+            ("Levered free cash flow (ttm)", Fmt.money(fcf_ttm, sym)),
+            ("Capital expenditure (ttm)", Fmt.money(abs(ttm_or_annual(ttm_cf, cf_a, "Capital Expenditure") or 0) or None, sym)),
+        ])
+    with right:
+        block("Stock price history", [
+            ("Beta (5y monthly)", Fmt.ratio(info.get("beta"), 2, suffix="")),
+            ("52-week change", Fmt.as_pct(change_52w, 2, signed=True)),
+            ("S&P 500 52-week change", Fmt.as_pct(info.get("SandP52WeekChange"), 2, signed=True)),
+            ("52-week high", Fmt.price(conv(info.get("fiftyTwoWeekHigh"), fx), sym)),
+            ("52-week low", Fmt.price(conv(info.get("fiftyTwoWeekLow"), fx), sym)),
+            ("50-day moving average", Fmt.price(ma(50), sym)),
+            ("200-day moving average", Fmt.price(ma(200), sym)),
+        ])
+        avg_vol = info.get("averageVolume")
+        if not _isnum(avg_vol) and not hist_2y.empty and "Volume" in hist_2y:
+            avg_vol = float(hist_2y["Volume"].dropna().tail(63).mean())
+        avg_vol10 = info.get("averageVolume10days")
+        if not _isnum(avg_vol10) and not hist_2y.empty and "Volume" in hist_2y:
+            avg_vol10 = float(hist_2y["Volume"].dropna().tail(10).mean())
+        block("Share statistics", [
+            ("Average volume (3 month)", Fmt.num(avg_vol, 2)),
+            ("Average volume (10 day)", Fmt.num(avg_vol10, 2)),
+            ("Shares outstanding", Fmt.num(info.get("sharesOutstanding"), 2)),
+            ("Implied shares outstanding", Fmt.num(info.get("impliedSharesOutstanding"), 2)),
+            ("Float", Fmt.num(info.get("floatShares"), 2)),
+            ("Held by insiders", Fmt.as_pct(info.get("heldPercentInsiders"), 2)),
+            ("Held by institutions", Fmt.as_pct(info.get("heldPercentInstitutions"), 2)),
+            ("Shares short", Fmt.num(info.get("sharesShort"), 2)),
+            ("Short ratio", Fmt.ratio(info.get("shortRatio"), 2, suffix="")),
+            ("Short % of float", Fmt.as_pct(info.get("shortPercentOfFloat"), 2)),
+            ("Short % of shares outstanding",
+             Fmt.as_pct(safe_div(info.get("sharesShort"), info.get("sharesOutstanding")), 2)),
+            ("Shares short (prior month)", Fmt.num(info.get("sharesShortPriorMonth"), 2)),
+        ])
+        block("Dividends and splits", [
+            ("Forward annual dividend rate", Fmt.price(conv(info.get("dividendRate"), fx), sym)),
+            ("Forward annual dividend yield", Fmt.as_pct(div["yield"], 2)),
+            ("Trailing annual dividend rate", Fmt.price(conv(info.get("trailingAnnualDividendRate"), fx), sym)),
+            ("Trailing annual dividend yield",
+             Fmt.as_pct(info.get("trailingAnnualDividendYield") if _isnum(info.get("trailingAnnualDividendYield"))
+                        and info.get("trailingAnnualDividendYield") < 0.25 else None, 2)),
+            ("5-year average dividend yield", Fmt.as_pct(div["five_year_avg"], 2)),
+            ("Payout ratio", Fmt.as_pct(div["payout"], 2)),
+            ("Dividend date", Fmt.date(div["pay_date"])),
+            ("Ex-dividend date", Fmt.date(div["ex_date"])),
+            ("Last split factor", info.get("lastSplitFactor") or Fmt.NA),
+            ("Last split date", epoch_date("lastSplitDate")),
+        ])
+        block("Valuation", [
+            ("Market capitalisation", Fmt.money(conv(co.market_cap, fx), sym)),
+            ("Enterprise value", Fmt.money(conv(info.get("enterpriseValue"), fx), sym)),
+            ("Trailing P/E", Fmt.ratio(info.get("trailingPE"))),
+            ("Forward P/E", Fmt.ratio(info.get("forwardPE"))),
+            ("PEG ratio", Fmt.ratio(pick(info, "pegRatio", "trailingPegRatio"))),
+            ("Price / sales (ttm)", Fmt.ratio(info.get("priceToSalesTrailing12Months"))),
+            ("Price / book (mrq)", Fmt.ratio(info.get("priceToBook"))),
+            ("EV / revenue", Fmt.ratio(info.get("enterpriseToRevenue"))),
+            ("EV / EBITDA", Fmt.ratio(info.get("enterpriseToEbitda"))),
+        ])
+
+    note(f"""
+Every figure above is labelled by the basis it is measured on, because mixing them is the most common way to
+misread a statistics sheet.
+- **(ttm)** is the trailing twelve months — the last four reported quarters summed. **(mrq)** is the most
+recent quarter, a snapshot on one date. A ratio combining a ttm flow with an mrq stock, such as return on
+equity, is standard but not strictly consistent, and moves when either side is restated.
+- **Quarterly growth is year on year**, comparing this quarter with the same quarter a year earlier. For any
+seasonal business that is the only comparison that means anything; quarter-on-quarter mostly measures the
+season.
+- Where the provider did not carry a field, it was recomputed from the reported statements under its standard
+definition. Where no definition could produce it — short interest, institutional holdings, the S&P comparison —
+it is left as a dash rather than filled with something adjacent.
+""", tone="neu")
+
+
+# ==============================================================================
+elif view == "Estimates & Revisions":
+    analyst = load_analyst(co.ticker)
+    est_rev = analyst.get("revenue_estimate")
+    est_eps = analyst.get("earnings_estimate")
+    hist_eps = analyst.get("earnings_history")
+    trend = analyst.get("eps_trend")
+    revisions = analyst.get("eps_revisions")
+    growth = analyst.get("growth_estimates")
+
+    section("What analysts expect",
+            "Published estimates, the record of how the company has actually done against them, and how those "
+            "estimates have been moving.")
+
+    if all(isinstance(f, pd.DataFrame) and f.empty for f in
+           (est_rev, est_eps, hist_eps, trend, revisions)) and not analyst.get("price_targets"):
+        empty_state("No analyst estimates are published for this listing.",
+                    "Coverage thins quickly outside large caps, and outside the US it is often absent "
+                    "entirely. The quarterly figures in the other modules still come from the company's own "
+                    "filings.")
+        st.stop()
+
+    PERIOD_LABELS = {"0q": "Current quarter", "+1q": "Next quarter", "0y": "Current year",
+                     "+1y": "Next year", "+5y": "Next 5 years", "-5y": "Past 5 years"}
+
+    def relabel(frame):
+        if not isinstance(frame, pd.DataFrame) or frame.empty:
+            return frame
+        out = frame.copy()
+        out.index = [PERIOD_LABELS.get(str(i), str(i)) for i in out.index]
+        return out
+
+    # --- Earnings history: estimate against actual ----------------------------
+    if isinstance(hist_eps, pd.DataFrame) and not hist_eps.empty:
+        h = hist_eps.copy()
+        h.index = [pd.Timestamp(i).strftime("%d %b %Y") if not isinstance(i, str) else i for i in h.index]
+        est_col = next((c for c in ("epsEstimate", "estimate") if c in h.columns), None)
+        act_col = next((c for c in ("epsActual", "actual") if c in h.columns), None)
+        if est_col and act_col:
+            figh = go.Figure()
+            figh.add_trace(go.Scatter(x=h.index, y=h[est_col], mode="markers", name="Estimate",
+                                      marker=dict(size=15, color=T["surface"], symbol="circle",
+                                                  line=dict(color=T["faint"], width=2.5))))
+            beat = h[act_col] >= h[est_col]
+            figh.add_trace(go.Scatter(x=h.index, y=h[act_col], mode="markers+text", name="Actual",
+                                      marker=dict(size=15,
+                                                  color=[T["success"] if b else T["danger"] for b in beat]),
+                                      text=[f"{'Beat' if b else 'Missed'}<br>{d:+,.2f}"
+                                            for b, d in zip(beat, h[act_col] - h[est_col])],
+                                      textposition="bottom center", textfont=dict(size=11)))
+            figh.update_yaxes(title_text="Earnings per share")
+            style_fig(figh, height=380)
+            surprises = (h[act_col] - h[est_col]).dropna()
+            beats = int((surprises >= 0).sum())
+            figure(figh, "Earnings per share: estimate against actual",
+                   "The consensus estimate before each quarter's results (hollow) and what the company "
+                   "actually reported (filled, green for a beat and red for a miss).",
+                   "Look at the **pattern**, not the last dot. A company that beats by a cent every quarter is "
+                   "managing expectations downward before the print, which is a different thing from a "
+                   "company that beats by wide and varying margins. A miss after a run of beats is the one "
+                   "that moves prices most.",
+                   f"This company beat or met in {beats} of the last {len(surprises)} reported quarters.",
+                   data=h)
+            table(h, "Earnings history",
+                  "Estimate, actual, the difference and the surprise as a percentage, quarter by quarter.",
+                  formats={c: "{:,.2f}" for c in h.columns if h[c].dtype.kind in "fc"})
+
+    # --- Revenue vs earnings, quarterly, with the margin line -----------------
+    q_inc_d = to_display(co.quarterly["inc"], fx)
+    if not q_inc_d.empty and "Total Revenue" in q_inc_d.columns:
+        recent = q_inc_d.tail(8)
+        x = year_labels(recent.index, "Quarterly")
+        figq = make_subplots(specs=[[{"secondary_y": True}]])
+        figq.add_trace(go.Bar(x=x, y=recent["Total Revenue"], name="Revenue",
+                              marker_color=T["accent_soft"], opacity=.9), secondary_y=False)
+        if "Net Income" in recent.columns:
+            figq.add_trace(go.Bar(x=x, y=recent["Net Income"], name="Earnings",
+                                  marker_color=T["warning"], opacity=.95), secondary_y=False)
+            margin = recent["Net Income"] / recent["Total Revenue"] * 100
+            figq.add_trace(go.Scatter(x=x, y=margin, name="Profit margin", mode="lines+markers",
+                                      line=dict(color=T["success"], width=2.5)), secondary_y=True)
+            figq.update_yaxes(title_text="Profit margin", ticksuffix="%", secondary_y=True, showgrid=False)
+        figq.update_yaxes(title_text=f"Amount ({sym})", secondary_y=False)
+        figq.update_xaxes(type="category")
+        style_fig(figq, height=380)
+        figure(figq, "Revenue against earnings, by quarter",
+               "Reported revenue and net income side by side for the last eight quarters, with net margin on "
+               "the right axis.",
+               "The bars show scale; the **line shows whether scale is converting**. Revenue bars growing "
+               "while the margin line falls is the pattern to catch early — it means the extra sales are "
+               "being bought rather than earned.",
+               "Quarterly figures are noisy and seasonal. Compare each quarter with the same quarter a year "
+               "earlier rather than with the one before it.",
+               data=recent[[c for c in ("Total Revenue", "Net Income") if c in recent.columns]])
+
+    # --- Forward estimates ----------------------------------------------------
+    e1, e2 = st.columns(2)
+    with e1:
+        if isinstance(est_rev, pd.DataFrame) and not est_rev.empty:
+            r = relabel(est_rev)
+            money_cols = [c for c in ("avg", "low", "high", "yearAgoRevenue") if c in r.columns]
+            for c in money_cols:
+                r[c] = r[c] * fx
+            table(r, "Revenue estimates",
+                  "Consensus revenue for the coming periods, with the range around it and the year-ago "
+                  "comparison.",
+                  formats={**{c: (lambda v: Fmt.money(v, sym)) for c in money_cols},
+                           "growth": "{:+,.1%}", "numberOfAnalysts": "{:,.0f}"})
+            if "avg" in r.columns:
+                figr = go.Figure()
+                figr.add_trace(go.Bar(x=r.index, y=r["avg"], name="Consensus",
+                                      marker_color=T["accent_soft"], opacity=.9))
+                if {"low", "high"}.issubset(r.columns):
+                    figr.add_trace(go.Scatter(x=r.index, y=r["high"], mode="markers", name="High",
+                                              marker=dict(symbol="line-ew-open", size=18,
+                                                          color=T["faint"], line=dict(width=2.5))))
+                    figr.add_trace(go.Scatter(x=r.index, y=r["low"], mode="markers", name="Low",
+                                              marker=dict(symbol="line-ew-open", size=18,
+                                                          color=T["faint"], line=dict(width=2.5))))
+                if "yearAgoRevenue" in r.columns:
+                    figr.add_trace(go.Scatter(x=r.index, y=r["yearAgoRevenue"], mode="markers",
+                                              name="A year ago",
+                                              marker=dict(symbol="diamond", size=11, color=T["warning"])))
+                figr.update_yaxes(title_text=f"Revenue ({sym})")
+                style_fig(figr, height=340)
+                figure(figr, "Revenue estimates and their range",
+                       "The consensus revenue estimate for each forward period, the high and low estimates "
+                       "around it, and what the company reported a year earlier.",
+                       "The **gap between high and low** is the disagreement. A wide range on the next "
+                       "quarter means analysts cannot agree on something near-term and checkable — usually "
+                       "pricing, volumes, or a specific contract.",
+                       "Consensus revenue is a far more stable number than consensus EPS, because it sits "
+                       "above every accounting choice below the revenue line.")
+    with e2:
+        if isinstance(est_eps, pd.DataFrame) and not est_eps.empty:
+            e = relabel(est_eps)
+            per_share = [c for c in ("avg", "low", "high", "yearAgoEps") if c in e.columns]
+            for c in per_share:
+                e[c] = e[c] * fx
+            table(e, "Earnings estimates",
+                  "Consensus earnings per share for the coming periods, with the range and the year-ago figure.",
+                  formats={**{c: "{:,.2f}" for c in per_share},
+                           "growth": "{:+,.1%}", "numberOfAnalysts": "{:,.0f}"})
+            if "avg" in e.columns:
+                fige = go.Figure()
+                fige.add_trace(go.Bar(x=e.index, y=e["avg"], name="Consensus EPS",
+                                      marker_color=T["warning"], opacity=.9))
+                if "yearAgoEps" in e.columns:
+                    fige.add_trace(go.Scatter(x=e.index, y=e["yearAgoEps"], mode="markers", name="A year ago",
+                                              marker=dict(symbol="diamond", size=11, color=T["faint"])))
+                fige.update_yaxes(title_text=f"EPS ({sym})")
+                style_fig(fige, height=340)
+                figure(fige, "Earnings estimates against the year-ago result",
+                       "Consensus earnings per share for each forward period, beside what the company "
+                       "actually earned in the equivalent period a year earlier.",
+                       "The distance between the bar and the diamond is the growth being priced in. A "
+                       "consensus barely above the year-ago figure means analysts expect a flat year, "
+                       "whatever the company's own guidance says.",
+                       "EPS estimates move with buybacks as well as with profit, so check them against the "
+                       "revenue estimates beside them.")
+
+    # --- Trend and revisions --------------------------------------------------
+    t1, t2 = st.columns(2)
+    with t1:
+        if isinstance(trend, pd.DataFrame) and not trend.empty:
+            tr = relabel(trend)
+            order = [c for c in ("90daysAgo", "60daysAgo", "30daysAgo", "7daysAgo", "current") if c in tr.columns]
+            if order:
+                figt2 = go.Figure()
+                for period in tr.index:
+                    figt2.add_trace(go.Scatter(
+                        x=["90d ago", "60d ago", "30d ago", "7d ago", "Now"][-len(order):],
+                        y=[tr.loc[period, c] * fx for c in order], mode="lines+markers", name=str(period)))
+                figt2.update_yaxes(title_text=f"Consensus EPS ({sym})")
+                style_fig(figt2, height=330)
+                figure(figt2, "How the EPS consensus has moved",
+                       "The consensus earnings estimate for each period, as it stood 90, 60, 30 and 7 days "
+                       "ago, and where it stands now.",
+                       "**Direction beats level.** A consensus drifting down for three months, then a company "
+                       "beating the reduced number, is not the same as a beat against an unchanged estimate — "
+                       "though both are reported as a beat.",
+                       "This is the clearest early signal in the whole estimates set, because it moves before "
+                       "the results do.",
+                       data=tr)
+            table(tr, "EPS trend",
+                  "The consensus estimate at each point in the past 90 days.",
+                  formats={c: "{:,.2f}" for c in tr.columns if tr[c].dtype.kind in "fc"})
+    with t2:
+        if isinstance(revisions, pd.DataFrame) and not revisions.empty:
+            rv = relabel(revisions)
+            up_cols = [c for c in rv.columns if c.lower().startswith("up")]
+            down_cols = [c for c in rv.columns if c.lower().startswith("down")]
+            if up_cols and down_cols:
+                figrv = go.Figure()
+                figrv.add_trace(go.Bar(x=rv.index, y=rv[up_cols[0]], name=f"Revised up ({up_cols[0]})",
+                                       marker_color=T["success"], opacity=.9))
+                figrv.add_trace(go.Bar(x=rv.index, y=-rv[down_cols[0]], name=f"Revised down ({down_cols[0]})",
+                                       marker_color=T["danger"], opacity=.9))
+                figrv.update_layout(barmode="relative")
+                figrv.update_yaxes(title_text="Number of analysts")
+                style_fig(figrv, height=330)
+                net_up = float(rv[up_cols[0]].sum() - rv[down_cols[0]].sum()) if not rv.empty else 0
+                figure(figrv, "Estimate revisions, up against down",
+                       "How many analysts raised their estimate and how many cut it, for each forward period.",
+                       "Revisions cluster: analysts move in the same direction at the same time, because they "
+                       "are reacting to the same disclosure. A lopsided bar is therefore a **consensus "
+                       "shifting**, not a single opinion changing.",
+                       f"Net {int(abs(net_up))} revision{'s' if abs(net_up) != 1 else ''} "
+                       f"{'upward' if net_up >= 0 else 'downward'} across the periods shown.",
+                       data=rv)
+            table(rv, "EPS revisions",
+                  "Counts of upward and downward revisions over the last 7 and 30 days.",
+                  formats={c: "{:,.0f}" for c in rv.columns if rv[c].dtype.kind in "fciu"})
+
+    if isinstance(growth, pd.DataFrame) and not growth.empty:
+        g = relabel(growth)
+        table(g, "Growth estimates against the sector and the index",
+              "Expected growth for this company beside the same expectation for its industry, its sector and "
+              "the broad index.",
+              formats={c: "{:+,.1%}" for c in g.columns if g[c].dtype.kind in "fc"})
+
+    note("""
+Estimates are opinions with a publication schedule, and they are worth reading as a record of what the market
+believes rather than as a forecast.
+- **The revisions and the trend matter more than the level.** By the time an estimate is published it is
+already in the price; the direction it has been moving is the part still being absorbed.
+- **A beat against a lowered estimate is not a beat against the original expectation.** Read the earnings
+history and the EPS trend together, never separately.
+- **Coverage is not uniform.** A consensus built from two analysts carries none of the averaging that makes a
+consensus of thirty useful, and the analyst count is shown beside every estimate for that reason.
+""", tone="neu")
 
 
 # ==============================================================================
@@ -5744,7 +6427,7 @@ elif view == "Price & Capital Dynamics":
     best_val = float(roll.loc[best_idx]) if best_idx is not None else None
     worst_val = float(roll.loc[worst_idx]) if worst_idx is not None else None
 
-    company_news, sector_news, sector_etf = load_news(co.ticker, info.get("sector"), 6)
+    company_news, sector_news, sector_etf = load_news(co.ticker, info.get("sector"), 8, co.name)
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Scatter(x=mcap_series.index, y=mcap_series, name="Market capitalisation",
@@ -5886,7 +6569,12 @@ was repricing the company, and that is the stretch to read the filings and trans
 what counts as unusual — a deliberate property, not an inconsistency.
 """, tone="warn" if downs > ups else "neu")
 
-    section("News context", "Recent company and sector headlines, most recent first.")
+    section("News context",
+            "Recent company and sector headlines, most recent first — pulled from the provider's own feed "
+            "and from Google News, which is queried by company name rather than by symbol.")
+
+    query_base, keyword_terms = news_keywords(co.name, co.ticker, co.sector, co.industry)
+
     n1, n2 = st.columns(2)
     with n1:
         st.markdown(f"<div class='eyebrow'>{co.ticker} headlines</div>", unsafe_allow_html=True)
@@ -5895,22 +6583,56 @@ what counts as unusual — a deliberate property, not an inconsistency.
                 title_html = (f"<a href='{it['link']}' target='_blank'>{it['title']}</a>"
                               if it["link"] else it["title"])
                 st.markdown(f"<div class='news'><div class='news-t'>{title_html}</div>"
-                            f"<div class='news-m'>{it['publisher']} · {time_ago(it['time'])}</div></div>",
+                            f"<div class='news-m'>{it['publisher']}"
+                            f"{' · ' + time_ago(it['time']) if it['time'] else ''}</div></div>",
                             unsafe_allow_html=True)
         else:
-            st.caption("No recent company headlines returned.")
+            st.caption("No headlines came back from any feed for this listing. The searches on the right go "
+                       "straight to the open web, which covers listings the financial feeds do not.")
     with n2:
-        st.markdown(f"<div class='eyebrow'>{info.get('sector', 'Sector')} headlines"
+        st.markdown(f"<div class='eyebrow'>{co.sector if co.sector != Fmt.NA else 'Sector'} headlines"
                     f"{f' · via {sector_etf}' if sector_etf else ''}</div>", unsafe_allow_html=True)
         if sector_news:
             for it in sector_news:
                 title_html = (f"<a href='{it['link']}' target='_blank'>{it['title']}</a>"
                               if it["link"] else it["title"])
                 st.markdown(f"<div class='news'><div class='news-t'>{title_html}</div>"
-                            f"<div class='news-m'>{it['publisher']} · {time_ago(it['time'])}</div></div>",
+                            f"<div class='news-m'>{it['publisher']}"
+                            f"{' · ' + time_ago(it['time']) if it['time'] else ''}</div></div>",
                             unsafe_allow_html=True)
         else:
-            st.caption("No sector headlines available for this sector.")
+            st.caption("No sector headlines available right now.")
+
+    # --- Search terms and links, built from what is known about the company ----
+    subhead("Look it up directly",
+            "Search terms assembled from the company's own name, sector and industry, each linked to a live "
+            "search. Useful when the feeds are empty, and useful anyway when you want the primary reporting "
+            "rather than an aggregator's summary.")
+
+    ticker_stem = co.ticker.split(".")[0]
+    engines = [
+        ("Google News", lambda q: google_news_url(q)),
+        ("Google", lambda q: f"https://www.google.com/search?q={urllib.parse.quote_plus(q)}"),
+        ("Bing News", lambda q: f"https://www.bing.com/news/search?q={urllib.parse.quote_plus(q)}"),
+    ]
+    rows = []
+    for term in keyword_terms:
+        links = " · ".join(f"<a href='{make(term)}' target='_blank'>{name}</a>" for name, make in engines)
+        rows.append(f"<div style='display:grid;grid-template-columns:1fr auto;gap:14px;"
+                    f"padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'>"
+                    f"<span><b>{term}</b></span><span style='font-size:13px'>{links}</span></div>")
+    filings = filing_source(co.ticker)
+    extra = []
+    if filings.get("url"):
+        extra.append(f"<a href='{filings['url']}' target='_blank'>{filings['name']} filings</a>")
+    if info.get("website"):
+        site = info["website"]
+        extra.append(f"<a href='{site}' target='_blank'>Company investor relations</a>")
+    extra.append(f"<a href='https://finance.yahoo.com/quote/{urllib.parse.quote(co.ticker)}/news' "
+                 f"target='_blank'>Yahoo Finance news page</a>")
+    st.markdown("<div class='card'>" + "".join(rows)
+                + f"<div style='padding-top:11px;font-size:13.5px;color:var(--muted)'>"
+                  f"Primary sources: {' · '.join(extra)}</div></div>", unsafe_allow_html=True)
 
     section("Enterprise value at a point in time",
             "Market capitalisation at the selected date, adjusted for the latest reported debt and cash.")
@@ -5979,6 +6701,7 @@ elif view == "Market Leaders":
             "KDH.VN", "ACB.VN"],
     }
 
+
     c1, c2, c3 = st.columns([1.2, 1.2, 1])
     with c1:
         mode = segmented("Universe", ["By market", "By sector", "Custom list"], key="leader_mode")
@@ -6000,12 +6723,41 @@ elif view == "Market Leaders":
         st.caption(f"Scanning {len(tickers)} companies. Market capitalisation is computed from the price on "
                    f"your chosen date multiplied by the current share count.")
     elif mode == "By sector":
-        sector_choice = st.selectbox("Sector", list(SECTOR_ETF_MAP.keys()))
+        sc1, sc2 = st.columns([1.2, 1])
+        with sc1:
+            sector_choice = st.selectbox("Sector", list(SECTOR_ETF_MAP.keys()))
+        with sc2:
+            sector_scope = st.selectbox("Search within", ["Global (sector ETF holdings)"]
+                                        + list(MARKET_POOLS.keys()), key="sector_scope")
         etf = SECTOR_ETF_MAP[sector_choice]
-        with st.spinner(f"Pulling current {etf} holdings…"):
-            tickers = sector_top_holdings(etf, max_n=max(top_n, 15))
-        st.caption(f"Current top holdings of {etf}, the {sector_choice} sector ETF, pulled live. Holdings are "
-                   "predominantly US-listed, so use the market universe for leaders elsewhere.")
+        if sector_scope == "Global (sector ETF holdings)":
+            with st.spinner(f"Pulling current {etf} holdings…"):
+                tickers = sector_top_holdings(etf, max_n=max(top_n, 15))
+            if tickers:
+                st.caption(f"Current top holdings of {etf}, the {sector_choice} sector ETF, pulled live. "
+                           "Holdings are predominantly US-listed — pick a market on the right for leaders "
+                           "elsewhere.")
+            else:
+                # The fund-holdings endpoint fails more often than the quote one.
+                # Rather than showing an empty leaderboard, fall back to checking
+                # each tracked company's own reported sector.
+                pool = list(dict.fromkeys([t for lst in MARKET_POOLS.values() for t in lst]))
+                with st.spinner(f"Holdings unavailable — checking {len(pool)} tracked companies "
+                                f"for {sector_choice}…"):
+                    tickers = filter_by_sector(tuple(pool), sector_choice)
+                st.caption(f"The {etf} holdings endpoint returned nothing just now, so this is the "
+                           f"{len(tickers)} companies across every tracked market whose own reported sector "
+                           f"is {sector_choice}.")
+        else:
+            pool = MARKET_POOLS[sector_scope]
+            with st.spinner(f"Checking {len(pool)} companies in {sector_scope} for {sector_choice}…"):
+                tickers = filter_by_sector(tuple(pool), sector_choice)
+            st.caption(f"{len(tickers)} of the {len(pool)} companies tracked in {sector_scope} report "
+                       f"{sector_choice} as their sector. Each sector is read live from the company itself, "
+                       f"not from a bundled classification.")
+        if not tickers:
+            st.warning(f"No {sector_choice} companies resolved in this scope. Try another market, or the "
+                       f"custom list.")
     else:
         raw = st.text_input("Symbols", value="AAPL, MSFT, NVDA, GOOG, AMZN, META, TSLA, BRK-B, LLY, TSM")
         tickers = [t.strip().upper() for t in raw.split(",") if t.strip()]
