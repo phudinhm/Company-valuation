@@ -145,14 +145,33 @@ _STYLESHEET = """
   --card-pad: 20px 22px;
   --kpi-pad: 17px 19px;
   --gap: 14px;
-  --fs-body: 15px;
-  --fs-kpi: 27px;
-  --fs-note: 14.5px;
-  --fs-cap: 13.5px;
-  --sec-top: 34px;
+  /* Fluid type: every size interpolates with the viewport between a phone and a
+     wide desktop, so text grows smoothly instead of jumping at one breakpoint
+     and being wrong on either side of it. The clamp floor is the phone size,
+     the ceiling the desktop size. */
+  --fs-body:    clamp(15.5px, 0.30vw + 14.4px, 17px);
+  --fs-note:    clamp(15.5px, 0.28vw + 14.5px, 16.5px);
+  --fs-cap:     clamp(14px,   0.20vw + 13.3px, 15px);
+  --fs-small:   clamp(13px,   0.16vw + 12.4px, 13.8px);
+  --fs-label:   clamp(12px,   0.12vw + 11.5px, 13px);
+  --fs-kpi:     clamp(25px,   1.05vw + 21.2px, 31px);
+  --fs-section: clamp(19px,   0.55vw + 17px,   22.5px);
+  --fs-card:    clamp(15.5px, 0.22vw + 14.7px, 16.5px);
+  --fs-hdr:     clamp(25px,   1.50vw + 19.5px, 34px);
+  --fs-px:      clamp(27px,   1.30vw + 22.2px, 35px);
+  --sec-top: clamp(26px, 1vw + 22px, 36px);
 }
 
-html, body, [class*="css"] { font-family: 'Inter', -apple-system, "Segoe UI", sans-serif; color: var(--text); }
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+    color: var(--text);
+    /* Inter's own optical sizing and contextual alternates; harmless where unsupported. */
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+[data-testid="stAppViewContainer"] p, [data-testid="stMarkdownContainer"] p,
+[data-testid="stAppViewContainer"] li { line-height: 1.65; }
 [data-testid="stAppViewContainer"] { background: var(--bg-grad); }
 [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] li,
 [data-testid="stAppViewContainer"] label, [data-testid="stMarkdownContainer"] p { font-size: var(--fs-body); }
@@ -160,22 +179,23 @@ html, body, [class*="css"] { font-family: 'Inter', -apple-system, "Segoe UI", sa
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.015em; color: var(--text); }
 a { color: var(--accent); }
 hr { border-color: var(--border); }
-[data-testid="stCaptionContainer"] p, .stCaption p { font-size: 13px !important; color: var(--muted) !important; }
+[data-testid="stCaptionContainer"] p, .stCaption p { font-size: var(--fs-small) !important;
+    color: var(--muted) !important; line-height: 1.6; }
 [data-testid="stMarkdownContainer"] { color: var(--text); }
 
 /* ---------- Sidebar ---------- */
 [data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid var(--border); }
 [data-testid="stSidebar"] * { color: var(--text); }
-[data-testid="stSidebar"] label { font-size: 13.5px !important; font-weight: 500; }
-.side-brand { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
-.side-sub { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 4px; }
-.side-group { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+[data-testid="stSidebar"] label { font-size: var(--fs-small) !important; font-weight: 500; }
+.side-brand { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.side-sub { font-size: var(--fs-label); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 4px; }
+.side-group { font-size: var(--fs-label); font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
               color: var(--faint); margin: 18px 0 2px; }
 
 /* ---------- Buttons & inputs ---------- */
 .stButton > button[kind="primary"] { background: linear-gradient(135deg, var(--accent), var(--accent-soft));
     border: none; font-weight: 600; }
-.stButton > button { border-radius: 8px; font-size: 14px; }
+.stButton > button { border-radius: 8px; font-size: var(--fs-small); }
 /* Streamlit's own base theme is light, and this app paints its themes on top in
    CSS. Form controls have to be re-skinned explicitly or they stay white in the
    Dark and Sepia themes. */
@@ -189,7 +209,7 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"], div[data-baseweb="b
     background-color: var(--surface-alt) !important;
     color: var(--text) !important;
     border-color: var(--border) !important;
-    border-radius: 8px; font-size: 14px;
+    border-radius: 8px; font-size: var(--fs-body);
 }
 div[data-baseweb="select"] svg { fill: var(--muted); }
 div[data-baseweb="popover"] div[role="listbox"], div[data-baseweb="menu"], ul[role="listbox"] {
@@ -204,20 +224,21 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 
 /* ---------- Section headers ---------- */
 .section { display: flex; align-items: baseline; gap: 12px; margin: var(--sec-top) 0 5px; }
-.section-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
+.section-num { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-small); font-weight: 600;
     color: var(--accent); background: var(--neu-bg); border-radius: 5px; padding: 3px 8px; letter-spacing: .04em; }
-.section-title { color: var(--text);  font-size: 19.5px; font-weight: 700; letter-spacing: -0.015em; }
+.section-title { color: var(--text);  font-size: var(--fs-section); font-weight: 700; letter-spacing: -0.015em; }
 .section-rule { height: 1px; background: var(--border); flex: 1; margin-bottom: 4px; }
-.section-sub { font-size: 14px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 105ch; }
-.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.section-sub { font-size: var(--fs-body); color: var(--muted); margin: 0 0 14px;
+    line-height: 1.65; max-width: 92ch; }
+.eyebrow { font-size: var(--fs-label); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
 
 /* ---------- Cards ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: var(--card-pad); box-shadow: 0 1px 2px var(--shadow); }
 .card + .card { margin-top: var(--gap); }
-.card-title { color: var(--text);  font-size: 15px; font-weight: 700; margin: 0 0 7px; }
-.card-body { font-size: 14.5px; line-height: 1.65; color: var(--text); }
-.card-meta { font-size: 13px; color: var(--muted); }
+.card-title { color: var(--text);  font-size: var(--fs-card); font-weight: 700; margin: 0 0 7px; }
+.card-body { font-size: var(--fs-body); line-height: 1.7; color: var(--text); max-width: 92ch; }
+.card-meta { font-size: var(--fs-small); color: var(--muted); line-height: 1.6; }
 
 /* ---------- KPI grid ---------- */
 .kpi-grid { display: grid; gap: var(--gap); margin-bottom: 8px; }
@@ -230,12 +251,12 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .kpi.bad::before { background: var(--danger); }
 .kpi.warn::before { background: var(--warning); }
 .kpi.flat::before { background: var(--accent); }
-.kpi-label { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+.kpi-label { font-size: var(--fs-label); font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
     color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .kpi-value { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
     font-size: var(--fs-kpi); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
-.kpi-sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
-.kpi-delta { font-size: 13px; font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.kpi-sub { font-size: var(--fs-small); color: var(--muted); margin-top: 7px; line-height: 1.5; }
+.kpi-delta { font-size: var(--fs-small); font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; }
 .kpi-delta.pos { color: var(--success); } .kpi-delta.neg { color: var(--danger); }
 .help-dot { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center;
     border-radius: 50%; background: var(--surface-sunk); color: var(--faint); font-size: 10px;
@@ -244,9 +265,11 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 /* ---------- Notes / interpretation ---------- */
 .note { border: 1px solid var(--border); border-left-width: 3px; border-radius: 9px;
     padding: 15px 17px; margin: 12px 0 4px; font-size: var(--fs-note); line-height: 1.68; }
-.note-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+.note-title { font-size: var(--fs-label); font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
     margin-bottom: 7px; opacity: .85; }
-.note p { margin: 0 0 8px; } .note ul { margin: 6px 0 7px 19px; padding: 0; } .note li { margin-bottom: 6px; }
+.note p { margin: 0 0 9px; max-width: 92ch; }
+.note ul { margin: 7px 0 8px 20px; padding: 0; }
+.note li { margin-bottom: 7px; max-width: 90ch; }
 .note.pos { background: var(--pos-bg); color: var(--pos-text); border-left-color: var(--success); }
 .note.neg { background: var(--neg-bg); color: var(--neg-text); border-left-color: var(--danger); }
 .note.warn { background: var(--warn-bg); color: var(--warn-text); border-left-color: var(--warning); }
@@ -255,24 +278,25 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 /* ---------- Figure captions ---------- */
 .figcap { border-top: 1px solid var(--border); padding-top: 8px; margin: -4px 0 2px; }
 .figcap-line { font-size: var(--fs-cap); color: var(--muted); line-height: 1.6; }
-.figcap-num { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600;
+.figcap-num { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-small); font-weight: 600;
     color: var(--accent); margin-right: 7px; }
 .figcap-title { color: var(--text); font-weight: 600; }
-.exp-block { font-size: 13.8px; line-height: 1.68; color: var(--text); }
+.exp-block { font-size: var(--fs-body); line-height: 1.7; color: var(--text); max-width: 92ch; }
 .exp-row { display: grid; grid-template-columns: 104px 1fr; gap: 12px; margin-bottom: 9px; }
-.exp-key { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+.exp-key { font-size: var(--fs-label); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
     color: var(--faint); padding-top: 3px; }
 
 /* ---------- Header ---------- */
-.hdr-name { color: var(--text);  font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
-.hdr-meta { font-size: 13.5px; color: var(--muted); margin-top: 7px; }
-.hdr-chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 5px;
+.hdr-name { color: var(--text);  font-size: var(--fs-hdr); font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
+.hdr-meta { font-size: var(--fs-small); color: var(--muted); margin-top: 8px; line-height: 1.65; }
+.hdr-fx { display: inline; }
+.hdr-chip { display: inline-block; font-size: var(--fs-small); font-weight: 600; padding: 3px 9px; border-radius: 5px;
     background: var(--surface-sunk); color: var(--muted); margin: 0 6px 4px 0; }
 .px-box { text-align: right; background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 14px 18px; }
-.px-value { font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
-.px-chg { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.px-meta { font-size: 12px; color: var(--faint); margin-top: 5px; }
+.px-value { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-px); font-weight: 700; letter-spacing: -0.02em; }
+.px-chg { font-size: var(--fs-card); font-weight: 600; font-variant-numeric: tabular-nums; }
+.px-meta { font-size: var(--fs-small); color: var(--faint); margin-top: 6px; }
 .monogram { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center;
     justify-content: center; font-weight: 800; font-size: 17px; }
 
@@ -282,23 +306,23 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .rng-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px;
     background: linear-gradient(90deg, var(--accent-soft), var(--accent)); }
 .rng-mark { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--text); border-radius: 1px; }
-.rng-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--faint); margin-top: 5px;
+.rng-labels { display: flex; justify-content: space-between; font-size: var(--fs-small); color: var(--faint); margin-top: 5px;
     font-family: 'IBM Plex Mono', monospace; }
 
 /* ---------- Score bars ---------- */
-.score-row { display: grid; grid-template-columns: 150px 1fr 50px; gap: 12px; align-items: center; margin-bottom: 9px; }
-.score-name { font-size: 13px; color: var(--muted); font-weight: 500; }
+.score-row { display: grid; grid-template-columns: 172px 1fr 52px; gap: 12px; align-items: center; margin-bottom: 9px; }
+.score-name { font-size: var(--fs-small); color: var(--muted); font-weight: 500; }
 .score-track { height: 8px; border-radius: 4px; background: var(--surface-sunk); overflow: hidden; }
 .score-fill { height: 100%; border-radius: 4px; }
-.score-val { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; text-align: right; }
+.score-val { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-small); font-weight: 600; text-align: right; }
 .verdict { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .verdict-score { font-family: 'IBM Plex Mono', monospace; font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
-.verdict-band { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
-.verdict-text { font-size: 13.8px; color: var(--muted); line-height: 1.6; flex: 1; min-width: 240px; }
+.verdict-band { font-size: var(--fs-card); font-weight: 700; letter-spacing: -0.01em; }
+.verdict-text { font-size: var(--fs-small); color: var(--muted); line-height: 1.65; flex: 1; min-width: 240px; }
 
 /* ---------- Checklist ---------- */
 .chk { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; margin-bottom: 10px;
-    font-size: 13.8px; line-height: 1.55; }
+    font-size: var(--fs-body); line-height: 1.6; }
 .chk-mark { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; text-align: center; }
 .chk-pass { color: var(--success); } .chk-fail { color: var(--danger); } .chk-warn { color: var(--warning); } .chk-na { color: var(--faint); }
 .chk-label { color: var(--text);  font-weight: 600; } .chk-detail { color: var(--muted); }
@@ -307,34 +331,34 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .defn { border-left: 3px solid var(--accent); background: var(--surface); border: 1px solid var(--border);
     border-left-width: 3px; border-radius: 9px; padding: 14px 16px; margin-bottom: 10px; }
 .defn-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.defn-name { color: var(--text);  font-size: 15px; font-weight: 700; }
-.defn-val { font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: var(--accent); }
+.defn-name { color: var(--text);  font-size: var(--fs-card); font-weight: 700; }
+.defn-val { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-card); font-weight: 600; color: var(--accent); }
 .defn-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; margin-top: 9px;
-    font-size: 13.8px; line-height: 1.6; }
-.defn-k { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    font-size: var(--fs-body); line-height: 1.65; }
+.defn-k { font-size: var(--fs-label); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
     color: var(--faint); padding-top: 3px; }
 
 /* ---------- Tabs & tables ---------- */
 .stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--border);
     overflow-x: auto; scrollbar-width: thin; }
-.stTabs [data-baseweb="tab"] { height: 42px; background: transparent; border: none; font-size: 14.5px;
+.stTabs [data-baseweb="tab"] { height: 44px; background: transparent; border: none; font-size: var(--fs-card);
     font-weight: 500; padding: 0 15px; color: var(--muted); border-radius: 7px 7px 0 0; white-space: nowrap; }
 .stTabs [aria-selected="true"] { color: var(--accent) !important; font-weight: 700;
     background: var(--surface-alt); box-shadow: inset 0 -2px 0 var(--accent); }
-[data-testid="stDataFrame"] { font-variant-numeric: tabular-nums; font-size: 13.5px; }
-[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; font-size: 23px; }
-[data-testid="stMetricLabel"] { font-size: 13px; color: var(--muted); }
-[data-testid="stExpander"] summary p { font-size: 14px !important; font-weight: 500; }
+[data-testid="stDataFrame"] { font-variant-numeric: tabular-nums; font-size: var(--fs-small); }
+[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-kpi); }
+[data-testid="stMetricLabel"] { font-size: var(--fs-small); color: var(--muted); }
+[data-testid="stExpander"] summary p { font-size: var(--fs-body) !important; font-weight: 500; }
 
 /* ---------- News list ---------- */
 .news { border-bottom: 1px solid var(--border); padding: 10px 0; }
 .news:last-child { border-bottom: none; }
-.news-t { color: var(--text);  font-size: 14.5px; line-height: 1.5; font-weight: 500; }
-.news-m { font-size: 12px; color: var(--faint); margin-top: 4px; }
+.news-t { color: var(--text);  font-size: var(--fs-body); line-height: 1.55; font-weight: 500; }
+.news-m { font-size: var(--fs-small); color: var(--faint); margin-top: 5px; }
 
 /* ---------- Footer ---------- */
 .foot { border-top: 1px solid var(--border); margin-top: 36px; padding: 16px 0 6px;
-    font-size: 12.5px; color: var(--faint); line-height: 1.7; }
+    font-size: var(--fs-small); color: var(--faint); line-height: 1.7; }
 
 
 /* ---------- Floating sidebar panel ---------- */
@@ -367,8 +391,8 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
                 opacity .16s ease, background-color .16s ease;
 }
 .st-key-module [data-testid="stRadioOption"] p {
-    font-size: 13.5px !important; font-weight: 600; margin: 0;
-    color: var(--muted) !important; letter-spacing: .005em;
+    font-size: calc(var(--fs-body) - 1px) !important; font-weight: 600; margin: 0;
+    color: var(--muted) !important; letter-spacing: .005em; line-height: 1.35;
 }
 /* hover: a grey outline and a slight lift */
 .st-key-module [data-testid="stRadioOption"]:hover {
@@ -404,21 +428,21 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     .st-key-module [data-testid="stRadioOption"]:has(input:checked) { opacity: 1; }
 }
 
-/* ---------- Mobile ---------- */
+/* ---------- Mobile ----------
+   Sizes are handled by the fluid scale above; this block only adjusts layout,
+   so there is one place that decides how large text is. */
 @media (max-width: 780px) {
-  :root { --card-pad: 15px 16px; --kpi-pad: 13px 15px; --gap: 10px; --fs-kpi: 23px;
-          --fs-body: 14.5px; --fs-note: 14px; --sec-top: 26px; }
-  .block-container { padding-left: .8rem; padding-right: .8rem; padding-top: 1.2rem; }
-  .hdr-name { font-size: 23px; }
+  :root { --card-pad: 16px 17px; --kpi-pad: 15px 16px; --gap: 11px; }
+  .block-container { padding-left: .85rem; padding-right: .85rem; padding-top: 2.6rem; }
   .px-box { text-align: left; margin-top: 12px; }
-  .px-value { font-size: 27px; }
-  .section-title { font-size: 17.5px; }
-  .score-row { grid-template-columns: 118px 1fr 40px; gap: 9px; }
+  .score-row { grid-template-columns: 140px 1fr 44px; gap: 10px; }
   .exp-row, .defn-row { grid-template-columns: 1fr; gap: 3px; }
-  .verdict-score { font-size: 38px; }
-  .stTabs [data-baseweb="tab"] { font-size: 13.5px; padding: 0 11px; height: 38px; }
+  .verdict-score { font-size: 40px; }
+  .stTabs [data-baseweb="tab"] { padding: 0 12px; }
   .monogram { display: none; }
-  .hdr-chip { font-size: 11.5px; }
+  .hdr-fx { display: block; margin-top: 6px; }
+  .kpi-grid { grid-template-columns: 1fr !important; }
+  .section-sub, .card-body, .exp-block { max-width: none; }
 }
 
 /* ---------- Print ---------- */
@@ -446,12 +470,12 @@ def style_fig(fig, height=None, legend="top", margin=None):
     """
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
-        font=dict(family="Inter, sans-serif", size=13, color=T["text"]),
+        font=dict(family="Inter, sans-serif", size=14, color=T["text"]),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         colorway=PLOT_SEQ,
         margin=margin or dict(l=8, r=8, t=30, b=8),
-        hoverlabel=dict(font_family="IBM Plex Mono, monospace", font_size=13,
+        hoverlabel=dict(font_family="IBM Plex Mono, monospace", font_size=14,
                         bgcolor=T["surface"], bordercolor=T["border"]),
         title_text="",
     )
@@ -459,13 +483,13 @@ def style_fig(fig, height=None, legend="top", margin=None):
         fig.update_layout(height=height)
     if legend == "top":
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.01,
-                                      xanchor="left", x=0, font=dict(size=12.5)))
+                                      xanchor="left", x=0, font=dict(size=13.5)))
     elif legend == "off":
         fig.update_layout(showlegend=False)
     fig.update_xaxes(gridcolor=T["grid"], zerolinecolor=T["grid"], linecolor=T["border"],
-                     tickfont=dict(size=12, color=T["muted"]), title_font=dict(size=12.5, color=T["muted"]))
+                     tickfont=dict(size=13, color=T["muted"]), title_font=dict(size=13.5, color=T["muted"]))
     fig.update_yaxes(gridcolor=T["grid"], zerolinecolor=T["grid"], linecolor=T["border"],
-                     tickfont=dict(size=12, color=T["muted"]), title_font=dict(size=12.5, color=T["muted"]))
+                     tickfont=dict(size=13, color=T["muted"]), title_font=dict(size=13.5, color=T["muted"]))
     return fig
 
 
@@ -3609,7 +3633,7 @@ with h_left:
             f"<span class='hdr-chip'>{co.sector}</span>"
             f"<span class='hdr-chip'>{co.industry}</span>"
             f"<span class='hdr-chip'>{info.get('exchange', Fmt.NA)}</span>"
-            f"{fx_line}</div>",
+            f"<span class='hdr-fx'>{fx_line}</span></div>",
             unsafe_allow_html=True)
 
 with h_right:
