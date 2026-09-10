@@ -102,6 +102,32 @@ THEMES = {
         "grid": "rgba(56,46,33,0.10)", "shadow": "rgba(80,60,35,0.12)",
         "ring": "rgba(143,87,48,0.20)",
     },
+    "Nord": {
+        "bg": "#2e3440", "bg_grad": "radial-gradient(circle at 12% -10%, #3b4252 0%, #2e3440 60%)",
+        "surface": "#3b4252", "surface_alt": "#434c5e", "surface_sunk": "#4c566a",
+        "text": "#eceff4", "muted": "#d8dee9", "faint": "#e5e9f0",
+        "border": "#4c566a", "accent": "#88c0d0", "accent_soft": "#8fbcbb",
+        "success": "#a3be8c", "danger": "#bf616a", "warning": "#ebcb8b", "info": "#81a1c1",
+        "pos_bg": "rgba(163, 190, 140, 0.15)", "pos_text": "#a3be8c",
+        "neg_bg": "rgba(191, 97, 106, 0.15)", "neg_text": "#bf616a",
+        "warn_bg": "rgba(235, 203, 139, 0.15)", "warn_text": "#ebcb8b",
+        "neu_bg": "rgba(136, 192, 208, 0.15)", "neu_text": "#88c0d0",
+        "grid": "rgba(236,239,244,0.08)", "shadow": "rgba(0,0,0,0.3)",
+        "ring": "rgba(136,192,208,0.25)",
+    },
+    "Dracula": {
+        "bg": "#282a36", "bg_grad": "radial-gradient(circle at 12% -10%, #383a59 0%, #282a36 60%)",
+        "surface": "#44475a", "surface_alt": "#6272a4", "surface_sunk": "#3b3e53",
+        "text": "#f8f8f2", "muted": "#bfbfbf", "faint": "#8be9fd",
+        "border": "#6272a4", "accent": "#ff79c6", "accent_soft": "#bd93f9",
+        "success": "#50fa7b", "danger": "#ff5555", "warning": "#f1fa8c", "info": "#8be9fd",
+        "pos_bg": "rgba(80, 250, 123, 0.15)", "pos_text": "#50fa7b",
+        "neg_bg": "rgba(255, 85, 85, 0.15)", "neg_text": "#ff5555",
+        "warn_bg": "rgba(241, 250, 140, 0.15)", "warn_text": "#f1fa8c",
+        "neu_bg": "rgba(255, 121, 198, 0.15)", "neu_text": "#ff79c6",
+        "grid": "rgba(248,248,242,0.08)", "shadow": "rgba(0,0,0,0.4)",
+        "ring": "rgba(255,121,198,0.25)",
+    },
 }
 
 DEFAULTS = {
@@ -195,7 +221,8 @@ hr { border-color: var(--border); }
 /* ---------- Buttons & inputs ---------- */
 .stButton > button[kind="primary"] { background: linear-gradient(135deg, var(--accent), var(--accent-soft));
     border: none; font-weight: 600; }
-.stButton > button { border-radius: 8px; font-size: var(--fs-small); }
+.stButton > button { border-radius: 8px; font-size: var(--fs-small); transition: all 0.2s ease; }
+.stButton > button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px var(--shadow); }
 /* Streamlit's own base theme is light, and this app paints its themes on top in
    CSS. Form controls have to be re-skinned explicitly or they stay white in the
    Dark and Sepia themes. */
@@ -234,7 +261,8 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 
 /* ---------- Cards ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: var(--card-pad); box-shadow: 0 1px 2px var(--shadow); }
+    padding: var(--card-pad); box-shadow: 0 1px 2px var(--shadow); transition: all 0.2s ease; }
+.card:hover { box-shadow: 0 4px 12px var(--shadow); transform: translateY(-1px); }
 .card + .card { margin-top: var(--gap); }
 .card-title { color: var(--text);  font-size: var(--fs-card); font-weight: 700; margin: 0 0 7px; }
 .card-body { font-size: var(--fs-body); line-height: 1.7; color: var(--text); max-width: 92ch; }
@@ -374,13 +402,13 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 [data-testid="stSidebarUserContent"] { padding-top: .35rem; }
 
 /* ---------- Module navigator: visible tabs, not a dropdown ---------- */
-.st-key-module, .st-key-module [data-testid="stRadio"] { width: 100% !important; }
-.st-key-module div[role="radiogroup"] { display: flex; flex-direction: column;
+[class*="st-key-modgroup_"], [class*="st-key-modgroup_"] [data-testid="stRadio"] { width: 100% !important; }
+[class*="st-key-modgroup_"] div[role="radiogroup"] { display: flex; flex-direction: column;
     gap: 5px; align-items: stretch; width: 100%; }
-.st-key-module [data-testid="stRadioOption"] { width: 100%; }
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"] { width: 100%; }
 /* hide the radio dot; the card itself carries the selected state */
-.st-key-module [data-testid="stRadioOption"] > div > div > div:first-child { display: none; }
-.st-key-module [data-testid="stRadioOption"] {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"] > div > div > div:first-child { display: none; }
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"] {
     position: relative;
     border: 1px solid transparent;
     border-radius: 10px;
@@ -390,42 +418,42 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease,
                 opacity .16s ease, background-color .16s ease;
 }
-.st-key-module [data-testid="stRadioOption"] p {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"] p {
     font-size: calc(var(--fs-body) - 1px) !important; font-weight: 600; margin: 0;
     color: var(--muted) !important; letter-spacing: .005em; line-height: 1.35;
 }
 /* hover: a grey outline and a slight lift */
-.st-key-module [data-testid="stRadioOption"]:hover {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover {
     border-color: var(--border);
     background: var(--surface);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px var(--shadow);
 }
-.st-key-module [data-testid="stRadioOption"]:hover p { color: var(--text) !important; }
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover p { color: var(--text) !important; }
 /* selected: bright accent border, a ring, and a left marker */
-.st-key-module [data-testid="stRadioOption"]:has(input:checked) {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) {
     background: var(--neu-bg);
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--ring), 0 8px 20px var(--shadow);
     transform: translateY(-1px);
 }
-.st-key-module [data-testid="stRadioOption"]:has(input:checked) p {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) p {
     color: var(--accent) !important; font-weight: 700;
 }
-.st-key-module [data-testid="stRadioOption"]:has(input:checked)::before {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked)::before {
     content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px;
     background: var(--accent); border-radius: 0 3px 3px 0;
 }
-.st-key-module [data-testid="stRadioOption"]:focus-visible {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
 }
 /* Dim the unselected entries only where :has() can actually mark the selected
    one, so a browser without :has() shows every entry at full strength rather
    than a uniformly greyed-out list. */
 @supports selector(:has(*)) {
-    .st-key-module [data-testid="stRadioOption"] { opacity: .62; }
-    .st-key-module [data-testid="stRadioOption"]:hover { opacity: .9; }
-    .st-key-module [data-testid="stRadioOption"]:has(input:checked) { opacity: 1; }
+    [class*="st-key-modgroup_"] [data-testid="stRadioOption"] { opacity: .62; }
+    [class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover { opacity: .9; }
+    [class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) { opacity: 1; }
 }
 
 /* ---------- Mobile ----------
@@ -433,7 +461,7 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
    so there is one place that decides how large text is. */
 @media (max-width: 780px) {
   :root { --card-pad: 16px 17px; --kpi-pad: 15px 16px; --gap: 11px; }
-  .block-container { padding-left: .85rem; padding-right: .85rem; padding-top: 2.6rem; }
+  .block-container { padding-left: 1rem; padding-right: 1rem; padding-top: 1.5rem; }
   .px-box { text-align: left; margin-top: 12px; }
   .score-row { grid-template-columns: 140px 1fr 44px; gap: 10px; }
   .exp-row, .defn-row { grid-template-columns: 1fr; gap: 3px; }
@@ -443,6 +471,7 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
   .hdr-fx { display: block; margin-top: 6px; }
   .kpi-grid { grid-template-columns: 1fr !important; }
   .section-sub, .card-body, .exp-block { max-width: none; }
+  [data-testid="stSidebarContent"] { margin: 0; border-radius: 0; border-left: none; border-bottom: none; border-top: none; }
 }
 
 /* ---------- Print ---------- */
@@ -458,7 +487,7 @@ st.markdown(_STYLESHEET.replace("/*TOKENS*/", _tokens_css(T)), unsafe_allow_html
 
 # Plotly styling derived from the same tokens.
 PLOT_SEQ = [T["accent_soft"], T["success"], T["warning"], T["info"], T["danger"], T["faint"]]
-PLOTLY_TEMPLATE = "plotly_dark" if st.session_state.theme == "Dark" else "plotly_white"
+PLOTLY_TEMPLATE = "plotly_dark" if st.session_state.theme in ("Dark", "Nord", "Dracula") else "plotly_white"
 
 
 def style_fig(fig, height=None, legend="top", margin=None):
@@ -475,6 +504,7 @@ def style_fig(fig, height=None, legend="top", margin=None):
         plot_bgcolor="rgba(0,0,0,0)",
         colorway=PLOT_SEQ,
         margin=margin or dict(l=8, r=8, t=30, b=8),
+        hovermode="x unified",
         hoverlabel=dict(font_family="IBM Plex Mono, monospace", font_size=14,
                         bgcolor=T["surface"], bordercolor=T["border"]),
         title_text="",
@@ -3484,10 +3514,34 @@ with st.sidebar:
     ticker = symbol if (suffix == "MANUAL" or "." in symbol) else f"{symbol}{suffix}"
 
     st.markdown("<div class='side-group'>View</div>", unsafe_allow_html=True)
-    # A visible list rather than a dropdown: the whole map of the terminal stays
-    # on screen, so switching view is one click and the reader can see what else
-    # is available without opening anything.
-    module = st.radio("Module", MODULE_LABELS, key="module", label_visibility="collapsed")
+    # Group the modules into logical categories for better UX
+    _nav_groups = {
+        "Overview & Setup": MODULE_LABELS[0:3],
+        "Financials & Health": [MODULE_LABELS[5], MODULE_LABELS[6], MODULE_LABELS[8], MODULE_LABELS[9]],
+        "Valuation & Pricing": [MODULE_LABELS[10], MODULE_LABELS[11], MODULE_LABELS[16]],
+        "Analysis & Risk": [MODULE_LABELS[3], MODULE_LABELS[4], MODULE_LABELS[7], MODULE_LABELS[13]],
+        "Portfolio & Market": [MODULE_LABELS[12], MODULE_LABELS[14], MODULE_LABELS[15], MODULE_LABELS[17]]
+    }
+
+    def _sync_module(g_key):
+        # When a module is selected in one group, clear the others
+        picked = st.session_state[g_key]
+        if picked is not None:
+            st.session_state.module = picked
+            for i, k in enumerate(_nav_groups.keys()):
+                group_key = f"modgroup_{i}"
+                if group_key != g_key:
+                    st.session_state[group_key] = None
+
+    for i, (g_name, g_labels) in enumerate(_nav_groups.items()):
+        group_key = f"modgroup_{i}"
+        if group_key not in st.session_state:
+            st.session_state[group_key] = st.session_state.module if st.session_state.module in g_labels else None
+        
+        st.markdown(f"<div style='font-size:11.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px 6px'>{g_name}</div>", unsafe_allow_html=True)
+        st.radio(g_name, g_labels, key=group_key, on_change=_sync_module, args=(group_key,), label_visibility="collapsed", index=None if st.session_state[group_key] is None else g_labels.index(st.session_state[group_key]))
+
+    module = st.session_state.module
     view = NAME_BY_LABEL[module]
     st.caption(MODULE_HELP[module])
 
