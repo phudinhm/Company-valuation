@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { computeDcf, capmWacc } from "@/lib/analysis";
-import { price as fmtPrice, pct } from "@/lib/format";
+import { price as fmtPrice, pct, money } from "@/lib/format";
 import { KpiGrid, Note } from "./Kpi";
 import type { QuoteSummary } from "@/lib/yahoo";
 
@@ -127,7 +127,7 @@ export function DcfPanel({ summary }: { summary: QuoteSummary }) {
               },
               {
                 label: "Enterprise value",
-                value: fmtPrice(result.enterpriseValue, summary.currency ?? "USD"),
+                value: money(result.enterpriseValue, summary.currency ?? "USD"),
               },
               {
                 label: "Terminal value share",
