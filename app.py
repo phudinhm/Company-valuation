@@ -1087,6 +1087,25 @@ def estimate_beta(ticker: str, benchmark: str = "SPY"):
         return None
 
 
+ANNUAL_YEARS_SHOWN = 5
+
+
+def _cap_recent_periods(statements: dict, quarterly: bool) -> dict:
+    """Keeps only the most recent ANNUAL_YEARS_SHOWN reported fiscal years.
+
+    Rows are sorted ascending by period end, so the trailing window is always
+    "the last N years the company has actually filed" rather than a fixed
+    calendar range - it rolls forward on its own as each new fiscal year
+    lands, with no year number hardcoded anywhere. SEC EDGAR in particular can
+    hand back a decade or more of history, which would otherwise make annual
+    tables and charts grow without bound as a company ages."""
+    if quarterly:
+        return statements
+    return {key: (frame.tail(ANNUAL_YEARS_SHOWN)
+                  if isinstance(frame, pd.DataFrame) and not frame.empty else frame)
+            for key, frame in statements.items()}
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_statements(ticker: str, quarterly: bool = False) -> dict:
     t = yf.Ticker(ticker)
@@ -1103,11 +1122,11 @@ def load_statements(ticker: str, quarterly: bool = False) -> dict:
             out[key] = pd.DataFrame()
     if any(not frame.empty for frame in out.values()):
         note_source("financial statements", DATA_SOURCE)
-        return out
+        return _cap_recent_periods(out, quarterly)
     backup = load_sec_statements(ticker, quarterly)
     if any(not frame.empty for frame in backup.values()):
         note_source("financial statements", "SEC EDGAR (XBRL company facts)")
-        return backup
+        return _cap_recent_periods(backup, quarterly)
     return out
 
 
