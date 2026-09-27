@@ -16,7 +16,7 @@ export async function GET(
   ]);
 
   let price = summary?.regularMarketPrice ?? null;
-  let currency = summary?.currency ?? chart?.currency ?? null;
+  const currency = summary?.currency ?? chart?.currency ?? null;
 
   if (price == null && chart && chart.candles.length > 0) {
     price = chart.candles[chart.candles.length - 1].close;
