@@ -66,66 +66,66 @@ THEMES = {
     "Light": {
         "bg": "#f4f5f9", "bg_grad": "radial-gradient(circle at 12% -10%, #ffffff 0%, #f4f5f9 60%)",
         "surface": "#ffffff", "surface_alt": "#f8f9fc", "surface_sunk": "#eef0f6",
-        "text": "#14172a", "muted": "#515c73", "faint": "#6f7a90",
-        "border": "#e4e7f0", "accent": "#3d3ab0", "accent_soft": "#6366f1",
-        "success": "#0f8f5c", "danger": "#cf2c1e", "warning": "#b8760a", "info": "#2563eb",
-        "pos_bg": "#ecfdf3", "pos_text": "#0a5f3d",
-        "neg_bg": "#fef3f2", "neg_text": "#8f2318",
-        "warn_bg": "#fffaeb", "warn_text": "#8a5a05",
-        "neu_bg": "#f0f2fc", "neu_text": "#2f2a86",
-        "grid": "rgba(20,23,42,0.08)", "shadow": "rgba(16,24,40,0.08)",
-        "ring": "rgba(61,58,176,0.20)",
+        "text": "#0f172a", "muted": "#475569", "faint": "#64748b",
+        "border": "#e2e8f0", "accent": "#4338ca", "accent_soft": "#6366f1",
+        "success": "#059669", "danger": "#dc2626", "warning": "#d97706", "info": "#2563eb",
+        "pos_bg": "#ecfdf5", "pos_text": "#065f46",
+        "neg_bg": "#fef2f2", "neg_text": "#991b1b",
+        "warn_bg": "#fffbeb", "warn_text": "#92400e",
+        "neu_bg": "#eef2ff", "neu_text": "#3730a3",
+        "grid": "rgba(15,23,42,0.07)", "shadow": "rgba(15,23,42,0.06)",
+        "ring": "rgba(67,56,202,0.18)",
     },
     "Dark": {
-        "bg": "#080b13", "bg_grad": "radial-gradient(circle at 12% -10%, #151c30 0%, #080b13 60%)",
-        "surface": "#111726", "surface_alt": "#161d2e", "surface_sunk": "#0d121e",
-        "text": "#eef1f8", "muted": "#a3b0c6", "faint": "#8590a6",
-        "border": "#222a3d", "accent": "#8b93f8", "accent_soft": "#a5adfb",
+        "bg": "#090d16", "bg_grad": "radial-gradient(circle at 12% -10%, #172033 0%, #090d16 60%)",
+        "surface": "#111827", "surface_alt": "#1f2937", "surface_sunk": "#0d131f",
+        "text": "#f8fafc", "muted": "#cbd5e1", "faint": "#94a3b8",
+        "border": "#243044", "accent": "#818cf8", "accent_soft": "#a5b4fc",
         "success": "#34d399", "danger": "#f87171", "warning": "#fbbf24", "info": "#60a5fa",
-        "pos_bg": "#0d2a22", "pos_text": "#7ee2b8",
-        "neg_bg": "#2a1416", "neg_text": "#fca5a5",
-        "warn_bg": "#2b2110", "warn_text": "#fcd34d",
-        "neu_bg": "#141b2e", "neu_text": "#c3caff",
-        "grid": "rgba(238,241,248,0.09)", "shadow": "rgba(0,0,0,0.45)",
-        "ring": "rgba(139,147,248,0.26)",
+        "pos_bg": "rgba(52, 211, 153, 0.16)", "pos_text": "#6ee7b7",
+        "neg_bg": "rgba(248, 113, 113, 0.16)", "neg_text": "#fca5a5",
+        "warn_bg": "rgba(251, 191, 36, 0.16)", "warn_text": "#fde047",
+        "neu_bg": "rgba(129, 140, 248, 0.16)", "neu_text": "#c7d2fe",
+        "grid": "rgba(248,250,252,0.08)", "shadow": "rgba(0,0,0,0.48)",
+        "ring": "rgba(129,140,248,0.25)",
     },
     "Sepia": {
-        "bg": "#f4eee0", "bg_grad": "radial-gradient(circle at 12% -10%, #fbf6ea 0%, #f4eee0 60%)",
-        "surface": "#fffaf0", "surface_alt": "#faf3e4", "surface_sunk": "#efe6d3",
-        "text": "#382e21", "muted": "#6b5c45", "faint": "#8b7c63",
-        "border": "#e2d4ba", "accent": "#8f5730", "accent_soft": "#b57a4a",
-        "success": "#3d8a5c", "danger": "#b0432d", "warning": "#b4801f", "info": "#3f6f9c",
-        "pos_bg": "#edf3e5", "pos_text": "#2c6742",
-        "neg_bg": "#f8e8e2", "neg_text": "#8b3520",
-        "warn_bg": "#f7eeda", "warn_text": "#7d5a12",
-        "neu_bg": "#f1e8d9", "neu_text": "#674325",
-        "grid": "rgba(56,46,33,0.10)", "shadow": "rgba(80,60,35,0.12)",
-        "ring": "rgba(143,87,48,0.20)",
+        "bg": "#f5efe4", "bg_grad": "radial-gradient(circle at 12% -10%, #fcf7ed 0%, #f5efe4 60%)",
+        "surface": "#fffbf4", "surface_alt": "#f6eedd", "surface_sunk": "#ede2cd",
+        "text": "#2c2217", "muted": "#5c4a35", "faint": "#786348",
+        "border": "#ded0bb", "accent": "#854d24", "accent_soft": "#ab6737",
+        "success": "#2e7d4d", "danger": "#b03823", "warning": "#b37719", "info": "#37628b",
+        "pos_bg": "#edf5e8", "pos_text": "#275c3a",
+        "neg_bg": "#fdf0eb", "neg_text": "#8c2e1b",
+        "warn_bg": "#fcf4df", "warn_text": "#7a520f",
+        "neu_bg": "#f2e9dc", "neu_text": "#613c1f",
+        "grid": "rgba(44,34,23,0.08)", "shadow": "rgba(70,50,30,0.10)",
+        "ring": "rgba(133,77,36,0.20)",
     },
     "Nord": {
-        "bg": "#2e3440", "bg_grad": "radial-gradient(circle at 12% -10%, #3b4252 0%, #2e3440 60%)",
-        "surface": "#3b4252", "surface_alt": "#434c5e", "surface_sunk": "#4c566a",
-        "text": "#eceff4", "muted": "#d8dee9", "faint": "#e5e9f0",
-        "border": "#4c566a", "accent": "#88c0d0", "accent_soft": "#8fbcbb",
+        "bg": "#242933", "bg_grad": "radial-gradient(circle at 12% -10%, #2e3440 0%, #242933 60%)",
+        "surface": "#2e3440", "surface_alt": "#3b4252", "surface_sunk": "#434c5e",
+        "text": "#eceff4", "muted": "#d8dee9", "faint": "#9fb3c8",
+        "border": "#434c5e", "accent": "#88c0d0", "accent_soft": "#81a1c1",
         "success": "#a3be8c", "danger": "#bf616a", "warning": "#ebcb8b", "info": "#81a1c1",
-        "pos_bg": "rgba(163, 190, 140, 0.15)", "pos_text": "#a3be8c",
-        "neg_bg": "rgba(191, 97, 106, 0.15)", "neg_text": "#bf616a",
-        "warn_bg": "rgba(235, 203, 139, 0.15)", "warn_text": "#ebcb8b",
-        "neu_bg": "rgba(136, 192, 208, 0.15)", "neu_text": "#88c0d0",
-        "grid": "rgba(236,239,244,0.08)", "shadow": "rgba(0,0,0,0.3)",
+        "pos_bg": "rgba(163, 190, 140, 0.18)", "pos_text": "#a3be8c",
+        "neg_bg": "rgba(191, 97, 106, 0.18)", "neg_text": "#bf616a",
+        "warn_bg": "rgba(235, 203, 139, 0.18)", "warn_text": "#ebcb8b",
+        "neu_bg": "rgba(136, 192, 208, 0.18)", "neu_text": "#88c0d0",
+        "grid": "rgba(236,239,244,0.08)", "shadow": "rgba(0,0,0,0.32)",
         "ring": "rgba(136,192,208,0.25)",
     },
     "Dracula": {
-        "bg": "#282a36", "bg_grad": "radial-gradient(circle at 12% -10%, #383a59 0%, #282a36 60%)",
-        "surface": "#44475a", "surface_alt": "#6272a4", "surface_sunk": "#3b3e53",
-        "text": "#f8f8f2", "muted": "#bfbfbf", "faint": "#8be9fd",
-        "border": "#6272a4", "accent": "#ff79c6", "accent_soft": "#bd93f9",
+        "bg": "#1e1f29", "bg_grad": "radial-gradient(circle at 12% -10%, #282a36 0%, #1e1f29 60%)",
+        "surface": "#282a36", "surface_alt": "#343746", "surface_sunk": "#21222c",
+        "text": "#f8f8f2", "muted": "#d6d8ee", "faint": "#8be9fd",
+        "border": "#44475a", "accent": "#ff79c6", "accent_soft": "#bd93f9",
         "success": "#50fa7b", "danger": "#ff5555", "warning": "#f1fa8c", "info": "#8be9fd",
-        "pos_bg": "rgba(80, 250, 123, 0.15)", "pos_text": "#50fa7b",
-        "neg_bg": "rgba(255, 85, 85, 0.15)", "neg_text": "#ff5555",
-        "warn_bg": "rgba(241, 250, 140, 0.15)", "warn_text": "#f1fa8c",
-        "neu_bg": "rgba(255, 121, 198, 0.15)", "neu_text": "#ff79c6",
-        "grid": "rgba(248,248,242,0.08)", "shadow": "rgba(0,0,0,0.4)",
+        "pos_bg": "rgba(80, 250, 123, 0.18)", "pos_text": "#50fa7b",
+        "neg_bg": "rgba(255, 85, 85, 0.18)", "neg_text": "#ff5555",
+        "warn_bg": "rgba(241, 250, 140, 0.18)", "warn_text": "#f1fa8c",
+        "neu_bg": "rgba(255, 121, 198, 0.18)", "neu_text": "#ff79c6",
+        "grid": "rgba(248,248,242,0.08)", "shadow": "rgba(0,0,0,0.42)",
         "ring": "rgba(255,121,198,0.25)",
     },
 }
@@ -168,46 +168,79 @@ _STYLESHEET = """
 /*TOKENS*/
 
 :root{
-  --card-pad: 20px 22px;
-  --kpi-pad: 17px 19px;
+  --card-pad: 18px 20px;
+  --kpi-pad: 16px 18px;
   --gap: 14px;
-  /* Fluid type: every size interpolates with the viewport between a phone and a
-     wide desktop, so text grows smoothly instead of jumping at one breakpoint
-     and being wrong on either side of it. The clamp floor is the phone size,
-     the ceiling the desktop size. */
-  --fs-body:    clamp(15.5px, 0.30vw + 14.4px, 17px);
-  --fs-note:    clamp(15.5px, 0.28vw + 14.5px, 16.5px);
-  --fs-cap:     clamp(14px,   0.20vw + 13.3px, 15px);
-  --fs-small:   clamp(13px,   0.16vw + 12.4px, 13.8px);
-  --fs-label:   clamp(12px,   0.12vw + 11.5px, 13px);
-  --fs-kpi:     clamp(25px,   1.05vw + 21.2px, 31px);
-  --fs-section: clamp(19px,   0.55vw + 17px,   22.5px);
-  --fs-card:    clamp(15.5px, 0.22vw + 14.7px, 16.5px);
-  --fs-hdr:     clamp(25px,   1.50vw + 19.5px, 34px);
-  --fs-px:      clamp(27px,   1.30vw + 22.2px, 35px);
-  --sec-top: clamp(26px, 1vw + 22px, 36px);
+  /* Fluid type scale for crisp balance between laptop, tablet and mobile */
+  --fs-body:    clamp(14.2px, 0.22vw + 13.5px, 15.6px);
+  --fs-note:    clamp(13.8px, 0.20vw + 13.2px, 15px);
+  --fs-cap:     clamp(12.6px, 0.16vw + 12px, 13.6px);
+  --fs-small:   clamp(11.8px, 0.14vw + 11.2px, 12.8px);
+  --fs-label:   clamp(11px,   0.10vw + 10.5px, 11.8px);
+  --fs-kpi:     clamp(22px,   0.85vw + 19px,   28px);
+  --fs-section: clamp(17.5px, 0.45vw + 16px,   21px);
+  --fs-card:    clamp(14.5px, 0.18vw + 13.8px, 15.8px);
+  --fs-hdr:     clamp(22px,   1.20vw + 18px,   30px);
+  --fs-px:      clamp(24px,   1.10vw + 20px,   32px);
+  --sec-top: clamp(22px, 0.9vw + 18px, 32px);
+}
+
+@keyframes appFadeIn {
+  0% { opacity: 0; transform: translateY(5px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.2); }
 }
 
 html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
     color: var(--text);
-    /* Inter's own optical sizing and contextual alternates; harmless where unsupported. */
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 }
 [data-testid="stAppViewContainer"] p, [data-testid="stMarkdownContainer"] p,
-[data-testid="stAppViewContainer"] li { line-height: 1.65; }
+[data-testid="stAppViewContainer"] li { line-height: 1.6; }
 [data-testid="stAppViewContainer"] { background: var(--bg-grad); }
 [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] li,
 [data-testid="stAppViewContainer"] label, [data-testid="stMarkdownContainer"] p { font-size: var(--fs-body); }
-.block-container { padding-top: 2.2rem; padding-bottom: 4.5rem; max-width: 1560px; }
-h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.015em; color: var(--text); }
-a { color: var(--accent); }
+.block-container { padding-top: 1.6rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
+h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text); }
+a { color: var(--accent); text-decoration: none; font-weight: 500; }
+a:hover { text-decoration: underline; }
 hr { border-color: var(--border); }
 [data-testid="stCaptionContainer"] p, .stCaption p { font-size: var(--fs-small) !important;
-    color: var(--muted) !important; line-height: 1.6; }
+    color: var(--muted) !important; line-height: 1.55; }
 [data-testid="stMarkdownContainer"] { color: var(--text); }
+
+/* ---------- Terminal Breadcrumb & Status Bar ---------- */
+.terminal-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 9px 18px; margin-bottom: 22px; box-shadow: 0 1px 3px var(--shadow);
+    flex-wrap: wrap; gap: 10px; animation: appFadeIn 0.2s ease-out;
+}
+.terminal-crumbs { display: flex; align-items: center; gap: 8px; font-size: var(--fs-small); }
+.crumb-brand { font-weight: 800; color: var(--accent); letter-spacing: -0.015em; }
+.crumb-sep { color: var(--border); font-weight: 400; }
+.crumb-cat { color: var(--muted); font-weight: 500; }
+.crumb-active { color: var(--text); font-weight: 700; }
+.terminal-tags { display: flex; align-items: center; gap: 8px; }
+.crumb-chip {
+    background: var(--surface-sunk); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 9px; font-family: 'IBM Plex Mono', monospace;
+    font-size: var(--fs-label); font-weight: 600;
+}
+.crumb-live {
+    color: var(--success); font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 5px; text-transform: uppercase;
+}
+.crumb-live::before {
+    content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success); animation: pulseGlow 2.2s infinite ease-in-out;
+}
 
 /* ---------- Sidebar ---------- */
 [data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid var(--border); }
@@ -220,14 +253,12 @@ hr { border-color: var(--border); }
 
 /* ---------- Buttons & inputs ---------- */
 .stButton > button[kind="primary"] { background: linear-gradient(135deg, var(--accent), var(--accent-soft));
-    border: none; font-weight: 600; }
-.stButton > button { border-radius: 8px; font-size: var(--fs-small); transition: all 0.2s ease; }
+    border: none; font-weight: 600; color: #ffffff !important; }
+.stButton > button { border-radius: 8px; font-size: var(--fs-small);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease; }
 .stButton > button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px var(--shadow); }
-/* Streamlit's own base theme is light, and this app paints its themes on top in
-   CSS. Form controls have to be re-skinned explicitly or they stay white in the
-   Dark and Sepia themes. */
-/* Streamlit wraps every control in a "…RootElement" that paints the white
-   background; skinning only the inner input leaves that showing through. */
+.stButton > button:active { transform: translateY(1px); }
+
 [data-testid$="RootElement"], [data-testid$="Container"] > div[data-baseweb="input"],
 .stSelectbox div[role="group"], .stMultiSelect div[role="group"],
 .stDateInput div[role="group"], .stNumberInput div[role="group"],
@@ -253,28 +284,29 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .section { display: flex; align-items: baseline; gap: 12px; margin: var(--sec-top) 0 5px; }
 .section-num { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-small); font-weight: 600;
     color: var(--accent); background: var(--neu-bg); border-radius: 5px; padding: 3px 8px; letter-spacing: .04em; }
-.section-title { color: var(--text);  font-size: var(--fs-section); font-weight: 700; letter-spacing: -0.015em; }
+.section-title { color: var(--text);  font-size: var(--fs-section); font-weight: 700; letter-spacing: -0.018em; }
 .section-rule { height: 1px; background: var(--border); flex: 1; margin-bottom: 4px; }
 .section-sub { font-size: var(--fs-body); color: var(--muted); margin: 0 0 14px;
-    line-height: 1.65; max-width: 92ch; }
+    line-height: 1.6; max-width: 92ch; }
 .eyebrow { font-size: var(--fs-label); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
 
 /* ---------- Cards ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: var(--card-pad); box-shadow: 0 1px 2px var(--shadow); transition: all 0.2s ease; }
-.card:hover { box-shadow: 0 4px 12px var(--shadow); transform: translateY(-1px); }
+    padding: var(--card-pad); box-shadow: 0 1px 3px var(--shadow);
+    transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), box-shadow 0.18s ease, border-color 0.18s ease; }
+.card:hover { box-shadow: 0 6px 18px var(--shadow); transform: translateY(-1.5px); border-color: var(--border); }
 .card + .card { margin-top: var(--gap); }
-.card-title { color: var(--text);  font-size: var(--fs-card); font-weight: 700; margin: 0 0 7px; }
-.card-body { font-size: var(--fs-body); line-height: 1.7; color: var(--text); max-width: 92ch; }
-.card-meta { font-size: var(--fs-small); color: var(--muted); line-height: 1.6; }
+.card-title { color: var(--text);  font-size: var(--fs-card); font-weight: 700; margin: 0 0 6px; }
+.card-body { font-size: var(--fs-body); line-height: 1.65; color: var(--text); max-width: 92ch; }
+.card-meta { font-size: var(--fs-small); color: var(--muted); line-height: 1.55; }
 
 /* ---------- KPI grid ---------- */
 .kpi-grid { display: grid; gap: var(--gap); margin-bottom: 8px; }
 .kpi { position: relative; background: var(--surface); border: 1px solid var(--border);
     border-radius: 11px; padding: var(--kpi-pad); overflow: hidden;
-    transition: border-color .16s ease, transform .16s ease; }
-.kpi:hover { border-color: var(--accent); transform: translateY(-1px); }
-.kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--border); }
+    transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+.kpi:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 18px var(--shadow); }
+.kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px; background: var(--border); }
 .kpi.good::before { background: var(--success); }
 .kpi.bad::before { background: var(--danger); }
 .kpi.warn::before { background: var(--warning); }
@@ -283,21 +315,21 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .kpi-value { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;
     font-size: var(--fs-kpi); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
-.kpi-sub { font-size: var(--fs-small); color: var(--muted); margin-top: 7px; line-height: 1.5; }
-.kpi-delta { font-size: var(--fs-small); font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.kpi-sub { font-size: var(--fs-small); color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.kpi-delta { font-size: var(--fs-small); font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .kpi-delta.pos { color: var(--success); } .kpi-delta.neg { color: var(--danger); }
 .help-dot { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center;
     border-radius: 50%; background: var(--surface-sunk); color: var(--faint); font-size: 10px;
     font-weight: 700; cursor: help; }
 
 /* ---------- Notes / interpretation ---------- */
-.note { border: 1px solid var(--border); border-left-width: 3px; border-radius: 9px;
-    padding: 15px 17px; margin: 12px 0 4px; font-size: var(--fs-note); line-height: 1.68; }
+.note { border: 1px solid var(--border); border-left-width: 3.5px; border-radius: 10px;
+    padding: 14px 17px; margin: 12px 0 4px; font-size: var(--fs-note); line-height: 1.65; }
 .note-title { font-size: var(--fs-label); font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-    margin-bottom: 7px; opacity: .85; }
-.note p { margin: 0 0 9px; max-width: 92ch; }
-.note ul { margin: 7px 0 8px 20px; padding: 0; }
-.note li { margin-bottom: 7px; max-width: 90ch; }
+    margin-bottom: 6px; opacity: .88; }
+.note p { margin: 0 0 8px; max-width: 92ch; }
+.note ul { margin: 6px 0 8px 18px; padding: 0; }
+.note li { margin-bottom: 6px; max-width: 90ch; }
 .note.pos { background: var(--pos-bg); color: var(--pos-text); border-left-color: var(--success); }
 .note.neg { background: var(--neg-bg); color: var(--neg-text); border-left-color: var(--danger); }
 .note.warn { background: var(--warn-bg); color: var(--warn-text); border-left-color: var(--warning); }
@@ -309,24 +341,24 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .figcap-num { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-small); font-weight: 600;
     color: var(--accent); margin-right: 7px; }
 .figcap-title { color: var(--text); font-weight: 600; }
-.exp-block { font-size: var(--fs-body); line-height: 1.7; color: var(--text); max-width: 92ch; }
-.exp-row { display: grid; grid-template-columns: 104px 1fr; gap: 12px; margin-bottom: 9px; }
+.exp-block { font-size: var(--fs-body); line-height: 1.68; color: var(--text); max-width: 92ch; }
+.exp-row { display: grid; grid-template-columns: 104px 1fr; gap: 12px; margin-bottom: 8px; }
 .exp-key { font-size: var(--fs-label); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--faint); padding-top: 3px; }
+    color: var(--faint); padding-top: 2px; }
 
 /* ---------- Header ---------- */
 .hdr-name { color: var(--text);  font-size: var(--fs-hdr); font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 0; }
-.hdr-meta { font-size: var(--fs-small); color: var(--muted); margin-top: 8px; line-height: 1.65; }
+.hdr-meta { font-size: var(--fs-small); color: var(--muted); margin-top: 7px; line-height: 1.6; }
 .hdr-fx { display: inline; }
-.hdr-chip { display: inline-block; font-size: var(--fs-small); font-weight: 600; padding: 3px 9px; border-radius: 5px;
-    background: var(--surface-sunk); color: var(--muted); margin: 0 6px 4px 0; }
+.hdr-chip { display: inline-block; font-size: var(--fs-small); font-weight: 600; padding: 2.5px 8.5px; border-radius: 5px;
+    background: var(--surface-sunk); color: var(--muted); margin: 0 5px 4px 0; border: 1px solid var(--border); }
 .px-box { text-align: right; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 14px 18px; }
+    border-radius: 12px; padding: 13px 17px; box-shadow: 0 1px 3px var(--shadow); }
 .px-value { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-px); font-weight: 700; letter-spacing: -0.02em; }
 .px-chg { font-size: var(--fs-card); font-weight: 600; font-variant-numeric: tabular-nums; }
-.px-meta { font-size: var(--fs-small); color: var(--faint); margin-top: 6px; }
-.monogram { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center;
-    justify-content: center; font-weight: 800; font-size: 17px; }
+.px-meta { font-size: var(--fs-small); color: var(--faint); margin-top: 5px; }
+.monogram { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; font-weight: 800; font-size: 16px; border: 1px solid var(--border); }
 
 /* ---------- 52-week range bar ---------- */
 .rng { margin-top: 10px; }
@@ -338,56 +370,47 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     font-family: 'IBM Plex Mono', monospace; }
 
 /* ---------- Score bars ---------- */
-.score-row { display: grid; grid-template-columns: 172px 1fr 52px; gap: 12px; align-items: center; margin-bottom: 9px; }
+.score-row { display: grid; grid-template-columns: 172px 1fr 52px; gap: 12px; align-items: center; margin-bottom: 8px; }
 .score-name { font-size: var(--fs-small); color: var(--muted); font-weight: 500; }
 .score-track { height: 8px; border-radius: 4px; background: var(--surface-sunk); overflow: hidden; }
 .score-fill { height: 100%; border-radius: 4px; }
 .score-val { color: var(--text);  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-small); font-weight: 600; text-align: right; }
 .verdict { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.verdict-score { font-family: 'IBM Plex Mono', monospace; font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+.verdict-score { font-family: 'IBM Plex Mono', monospace; font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
 .verdict-band { font-size: var(--fs-card); font-weight: 700; letter-spacing: -0.01em; }
-.verdict-text { font-size: var(--fs-small); color: var(--muted); line-height: 1.65; flex: 1; min-width: 240px; }
+.verdict-text { font-size: var(--fs-small); color: var(--muted); line-height: 1.6; flex: 1; min-width: 240px; }
 
 /* ---------- Checklist ---------- */
-.chk { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; margin-bottom: 10px;
-    font-size: var(--fs-body); line-height: 1.6; }
+.chk { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; margin-bottom: 9px;
+    font-size: var(--fs-body); line-height: 1.55; }
 .chk-mark { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; text-align: center; }
 .chk-pass { color: var(--success); } .chk-fail { color: var(--danger); } .chk-warn { color: var(--warning); } .chk-na { color: var(--faint); }
 .chk-label { color: var(--text);  font-weight: 600; } .chk-detail { color: var(--muted); }
 
-/* ---------- Definition blocks (line-item deep dive) ---------- */
-.defn { border-left: 3px solid var(--accent); background: var(--surface); border: 1px solid var(--border);
-    border-left-width: 3px; border-radius: 9px; padding: 14px 16px; margin-bottom: 10px; }
-.defn-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.defn-name { color: var(--text);  font-size: var(--fs-card); font-weight: 700; }
-.defn-val { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-card); font-weight: 600; color: var(--accent); }
-.defn-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; margin-top: 9px;
-    font-size: var(--fs-body); line-height: 1.65; }
-.defn-k { font-size: var(--fs-label); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--faint); padding-top: 3px; }
-
 /* ---------- Tabs & tables ---------- */
-.stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--border);
-    overflow-x: auto; scrollbar-width: thin; }
-.stTabs [data-baseweb="tab"] { height: 44px; background: transparent; border: none; font-size: var(--fs-card);
-    font-weight: 500; padding: 0 15px; color: var(--muted); border-radius: 7px 7px 0 0; white-space: nowrap; }
+.stTabs [data-baseweb="tab-list"] { gap: 6px; border-bottom: 1px solid var(--border);
+    padding-bottom: 3px; overflow-x: auto; scrollbar-width: thin; }
+.stTabs [data-baseweb="tab"] { height: 40px; background: transparent; border: 1px solid transparent; font-size: var(--fs-card);
+    font-weight: 500; padding: 0 16px; color: var(--muted); border-radius: 8px; white-space: nowrap;
+    transition: all 0.16s ease; }
+.stTabs [data-baseweb="tab"]:hover { background: var(--surface-alt); color: var(--text); }
 .stTabs [aria-selected="true"] { color: var(--accent) !important; font-weight: 700;
-    background: var(--surface-alt); box-shadow: inset 0 -2px 0 var(--accent); }
+    background: var(--neu-bg) !important; border-color: var(--border) !important;
+    box-shadow: 0 1px 3px var(--shadow) !important; }
 [data-testid="stDataFrame"] { font-variant-numeric: tabular-nums; font-size: var(--fs-small); }
 [data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-kpi); }
 [data-testid="stMetricLabel"] { font-size: var(--fs-small); color: var(--muted); }
 [data-testid="stExpander"] summary p { font-size: var(--fs-body) !important; font-weight: 500; }
 
 /* ---------- News list ---------- */
-.news { border-bottom: 1px solid var(--border); padding: 10px 0; }
+.news { border-bottom: 1px solid var(--border); padding: 9px 0; }
 .news:last-child { border-bottom: none; }
 .news-t { color: var(--text);  font-size: var(--fs-body); line-height: 1.55; font-weight: 500; }
-.news-m { font-size: var(--fs-small); color: var(--faint); margin-top: 5px; }
+.news-m { font-size: var(--fs-small); color: var(--faint); margin-top: 4px; }
 
 /* ---------- Footer ---------- */
 .foot { border-top: 1px solid var(--border); margin-top: 36px; padding: 16px 0 6px;
-    font-size: var(--fs-small); color: var(--faint); line-height: 1.7; }
-
+    font-size: var(--fs-small); color: var(--faint); line-height: 1.65; }
 
 /* ---------- Floating sidebar panel ---------- */
 [data-testid="stSidebar"] { background: transparent; border-right: none; }
@@ -401,74 +424,65 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 [data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; }
 [data-testid="stSidebarUserContent"] { padding-top: .35rem; }
 
-/* ---------- Module navigator: visible tabs, not a dropdown ---------- */
-[class*="st-key-modgroup_"], [class*="st-key-modgroup_"] [data-testid="stRadio"] { width: 100% !important; }
-[class*="st-key-modgroup_"] div[role="radiogroup"] { display: flex; flex-direction: column;
-    gap: 5px; align-items: stretch; width: 100%; }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"] { width: 100%; }
-/* hide the radio dot; the card itself carries the selected state */
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"] > div > div > div:first-child { display: none; }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"] {
-    position: relative;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    padding: 9px 12px 9px 13px;
-    background: var(--surface-alt);
-    cursor: pointer;
+/* ---------- Module navigator: visible tabs & cards ---------- */
+[class*="st-key-modgroup_"], [class*="st-key-mod_picker"],
+[class*="st-key-modgroup_"] [data-testid="stRadio"], [class*="st-key-mod_picker"] [data-testid="stRadio"] { width: 100% !important; }
+[class*="st-key-modgroup_"] div[role="radiogroup"], [class*="st-key-mod_picker"] div[role="radiogroup"] {
+    display: flex; flex-direction: column; gap: 5px; align-items: stretch; width: 100%;
+}
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"], [class*="st-key-mod_picker"] [data-testid="stRadioOption"] {
+    width: 100%; position: relative; border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 12px 8px 13px; background: var(--surface-alt); cursor: pointer;
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease,
                 opacity .16s ease, background-color .16s ease;
 }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"] p {
-    font-size: calc(var(--fs-body) - 1px) !important; font-weight: 600; margin: 0;
+/* hide the radio dot */
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"] > div > div > div:first-child,
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"] > div > div > div:first-child { display: none; }
+
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"] p,
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"] p {
+    font-size: calc(var(--fs-body) - 1.2px) !important; font-weight: 600; margin: 0;
     color: var(--muted) !important; letter-spacing: .005em; line-height: 1.35;
 }
-/* hover: a grey outline and a slight lift */
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover {
-    border-color: var(--border);
-    background: var(--surface);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px var(--shadow);
+/* hover: slight lift & glow */
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover,
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"]:hover {
+    border-color: var(--accent-soft); background: var(--surface);
+    transform: translateY(-1.5px); box-shadow: 0 4px 14px var(--shadow);
 }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover p { color: var(--text) !important; }
-/* selected: bright accent border, a ring, and a left marker */
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) {
-    background: var(--neu-bg);
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--ring), 0 8px 20px var(--shadow);
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover p,
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"]:hover p { color: var(--text) !important; }
+
+/* selected */
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked),
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"]:has(input:checked) {
+    background: var(--neu-bg); border-color: var(--accent);
+    box-shadow: 0 0 0 2.5px var(--ring), 0 6px 16px var(--shadow);
     transform: translateY(-1px);
 }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) p {
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) p,
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"]:has(input:checked) p {
     color: var(--accent) !important; font-weight: 700;
 }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked)::before {
-    content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px;
+[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked)::before,
+[class*="st-key-mod_picker"] [data-testid="stRadioOption"]:has(input:checked)::before {
+    content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3.5px;
     background: var(--accent); border-radius: 0 3px 3px 0;
 }
-[class*="st-key-modgroup_"] [data-testid="stRadioOption"]:focus-visible {
-    outline: 2px solid var(--accent); outline-offset: 2px;
-}
-/* Dim the unselected entries only where :has() can actually mark the selected
-   one, so a browser without :has() shows every entry at full strength rather
-   than a uniformly greyed-out list. */
-@supports selector(:has(*)) {
-    [class*="st-key-modgroup_"] [data-testid="stRadioOption"] { opacity: .62; }
-    [class*="st-key-modgroup_"] [data-testid="stRadioOption"]:hover { opacity: .9; }
-    [class*="st-key-modgroup_"] [data-testid="stRadioOption"]:has(input:checked) { opacity: 1; }
-}
 
-/* ---------- Mobile ----------
-   Sizes are handled by the fluid scale above; this block only adjusts layout,
-   so there is one place that decides how large text is. */
+/* ---------- Mobile ---------- */
 @media (max-width: 780px) {
-  :root { --card-pad: 16px 17px; --kpi-pad: 15px 16px; --gap: 11px; }
-  .block-container { padding-left: 1rem; padding-right: 1rem; padding-top: 1.5rem; }
+  :root { --card-pad: 15px 16px; --kpi-pad: 14px 15px; --gap: 10px; }
+  .block-container { padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 1.2rem; }
+  .terminal-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
   .px-box { text-align: left; margin-top: 12px; }
   .score-row { grid-template-columns: 140px 1fr 44px; gap: 10px; }
   .exp-row, .defn-row { grid-template-columns: 1fr; gap: 3px; }
-  .verdict-score { font-size: 40px; }
-  .stTabs [data-baseweb="tab"] { padding: 0 12px; }
+  .verdict-score { font-size: 38px; }
+  .stTabs [data-baseweb="tab"] { padding: 0 11px; }
   .monogram { display: none; }
-  .hdr-fx { display: block; margin-top: 6px; }
+  .hdr-fx { display: block; margin-top: 5px; }
   .kpi-grid { grid-template-columns: 1fr !important; }
   .section-sub, .card-body, .exp-block { max-width: none; }
   [data-testid="stSidebarContent"] { margin: 0; border-radius: 0; border-left: none; border-bottom: none; border-top: none; }
@@ -517,9 +531,10 @@ def style_fig(fig, height=None, legend="top", margin=None):
     elif legend == "off":
         fig.update_layout(showlegend=False)
     fig.update_xaxes(gridcolor=T["grid"], zerolinecolor=T["grid"], linecolor=T["border"],
-                     tickfont=dict(size=13, color=T["muted"]), title_font=dict(size=13.5, color=T["muted"]))
+                     showspikes=True, spikecolor=T["accent_soft"], spikethickness=1, spikedash="dot", spikemode="across",
+                     tickfont=dict(size=12.5, color=T["muted"]), title_font=dict(size=13, color=T["muted"]))
     fig.update_yaxes(gridcolor=T["grid"], zerolinecolor=T["grid"], linecolor=T["border"],
-                     tickfont=dict(size=13, color=T["muted"]), title_font=dict(size=13.5, color=T["muted"]))
+                     tickfont=dict(size=12.5, color=T["muted"]), title_font=dict(size=13, color=T["muted"]))
     return fig
 
 
@@ -780,6 +795,33 @@ def _norm_stmt(df) -> pd.DataFrame:
         keep = coverage >= max(1, int(coverage.max() * 0.2))
         out = out[keep]
     return out
+
+
+def _merge_statements(yf_df: pd.DataFrame, sec_df: pd.DataFrame) -> pd.DataFrame:
+    """Merges primary statements with SEC EDGAR filings to preserve and backfill
+    earlier historical periods (e.g. FY2021, FY2020) if the primary provider only
+    carried the most recent 3-4 years."""
+    if yf_df is None or yf_df.empty:
+        return sec_df if (sec_df is not None and isinstance(sec_df, pd.DataFrame)) else pd.DataFrame()
+    if sec_df is None or sec_df.empty or not isinstance(sec_df, pd.DataFrame):
+        return yf_df
+    try:
+        yf_years = {pd.Timestamp(d).year for d in yf_df.index}
+        older_indices = [idx for idx in sec_df.index if pd.Timestamp(idx).year not in yf_years]
+        if not older_indices:
+            return yf_df
+        older_df = sec_df.loc[older_indices]
+        all_cols = list(dict.fromkeys(list(yf_df.columns) + list(older_df.columns)))
+        older_aligned = older_df.reindex(columns=all_cols)
+        yf_aligned = yf_df.reindex(columns=all_cols)
+        merged = pd.concat([older_aligned, yf_aligned]).sort_index()
+        # Deduplicate on year keeping primary data
+        merged["_yr"] = [pd.Timestamp(d).year for d in merged.index]
+        merged = merged.drop_duplicates(subset=["_yr"], keep="last").drop(columns=["_yr"])
+        return merged
+    except Exception as exc:
+        note_error("statement merge", exc)
+        return yf_df
 
 
 # --- Backup sources ----------------------------------------------------------
@@ -1101,6 +1143,19 @@ def load_statements(ticker: str, quarterly: bool = False) -> dict:
             out[key] = _norm_stmt(getattr(t, attr))
         except Exception:
             out[key] = pd.DataFrame()
+
+    # Backfill with SEC statements for annual periods to ensure earlier years (e.g. FY2021, FY2020)
+    # are available if Yahoo only reported the most recent 3-4 years.
+    if not quarterly:
+        try:
+            backup = load_sec_statements(ticker, quarterly=False)
+            if backup and any(isinstance(f, pd.DataFrame) and not f.empty for f in backup.values()):
+                for key in ("inc", "bs", "cf"):
+                    if key in backup and not backup[key].empty:
+                        out[key] = _merge_statements(out.get(key, pd.DataFrame()), backup[key])
+        except Exception as exc:
+            note_error("sec statement merge", exc)
+
     if any(not frame.empty for frame in out.values()):
         note_source("financial statements", DATA_SOURCE)
         return out
@@ -3335,7 +3390,7 @@ def figure(fig, title, what, how, why=None, height=None, data=None, record=True)
         REPORT.add("figure", num=num, title=title, what=what, how=how, html=chart_html)
 
 
-def table(df, title, what=None, formats=None, height=None, record=True, highlight=None):
+def table(df, title, what=None, formats=None, height=None, record=True, highlight=None, color_cols=None):
     """A dataframe with a numbered caption, consistent number formatting and a
     CSV export, so tables are first-class report objects too."""
     num = REPORT.next_figure() if record else ""
@@ -3347,6 +3402,24 @@ def table(df, title, what=None, formats=None, height=None, record=True, highligh
         styled = styled.apply(
             lambda s: [f"background-color:{T['neu_bg']};color:{T['neu_text']};font-weight:600"
                        if s.name == highlight else "" for _ in s], axis=1)
+    if color_cols is not None:
+        valid_cols = [c for c in color_cols if c in df.columns]
+        if valid_cols:
+            def _color_val(val):
+                if not _isnum(val):
+                    return ""
+                if val > 0.0001:
+                    return f"background-color: {T['pos_bg']}; color: {T['pos_text']}; font-weight: 600;"
+                elif val < -0.0001:
+                    return f"background-color: {T['neg_bg']}; color: {T['neg_text']}; font-weight: 600;"
+                return f"color: {T['muted']};"
+            try:
+                if hasattr(styled, "map"):
+                    styled = styled.map(_color_val, subset=valid_cols)
+                elif hasattr(styled, "applymap"):
+                    styled = styled.applymap(_color_val, subset=valid_cols)
+            except Exception:
+                pass
     st.dataframe(styled, **({"height": height} if height else {}), **FILL_DF)
     if record:
         table_html = ""
@@ -3514,36 +3587,50 @@ with st.sidebar:
     ticker = symbol if (suffix == "MANUAL" or "." in symbol) else f"{symbol}{suffix}"
 
     st.markdown("<div class='side-group'>View</div>", unsafe_allow_html=True)
-    # Group the modules into logical categories for better UX
-    _nav_groups = {
-        "Overview & Setup": MODULE_LABELS[0:3],
-        "Financials & Health": [MODULE_LABELS[5], MODULE_LABELS[6], MODULE_LABELS[8], MODULE_LABELS[9]],
-        "Valuation & Pricing": [MODULE_LABELS[10], MODULE_LABELS[11], MODULE_LABELS[16]],
-        "Analysis & Risk": [MODULE_LABELS[3], MODULE_LABELS[4], MODULE_LABELS[7], MODULE_LABELS[13]],
-        "Portfolio & Market": [MODULE_LABELS[12], MODULE_LABELS[14], MODULE_LABELS[15], MODULE_LABELS[17]]
+
+    _nav_categories = {
+        "Overview": ("Overview & Setup", [MODULE_LABELS[0], MODULE_LABELS[1], MODULE_LABELS[2]]),
+        "Financials": ("Financials & Health", [MODULE_LABELS[5], MODULE_LABELS[6], MODULE_LABELS[8], MODULE_LABELS[9]]),
+        "Valuation": ("Valuation & Pricing", [MODULE_LABELS[10], MODULE_LABELS[11], MODULE_LABELS[16]]),
+        "Analysis": ("Analysis & Risk", [MODULE_LABELS[3], MODULE_LABELS[4], MODULE_LABELS[7], MODULE_LABELS[13]]),
+        "Portfolio": ("Markets & Portfolio", [MODULE_LABELS[12], MODULE_LABELS[14], MODULE_LABELS[15], MODULE_LABELS[17]]),
+        "All": ("All Modules", MODULE_LABELS),
     }
 
-    def _sync_module(g_key):
-        # When a module is selected in one group, clear the others
-        picked = st.session_state[g_key]
-        if picked is not None:
-            st.session_state.module = picked
-            for i, k in enumerate(_nav_groups.keys()):
-                group_key = f"modgroup_{i}"
-                if group_key != g_key:
-                    st.session_state[group_key] = None
+    def _cat_of(m):
+        for c, (_, lbls) in _nav_categories.items():
+            if c != "All" and m in lbls:
+                return c
+        return "Overview"
 
-    for i, (g_name, g_labels) in enumerate(_nav_groups.items()):
-        group_key = f"modgroup_{i}"
-        if group_key not in st.session_state:
-            st.session_state[group_key] = st.session_state.module if st.session_state.module in g_labels else None
-        
-        st.markdown(f"<div style='font-size:11.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px 6px'>{g_name}</div>", unsafe_allow_html=True)
-        st.radio(g_name, g_labels, key=group_key, on_change=_sync_module, args=(group_key,), label_visibility="collapsed", index=None if st.session_state[group_key] is None else g_labels.index(st.session_state[group_key]))
+    cur_module = st.session_state.get("module", MODULE_LABELS[1])
+    default_cat = _cat_of(cur_module)
 
-    module = st.session_state.module
+    if "nav_cat_selected" not in st.session_state:
+        st.session_state["nav_cat_selected"] = default_cat
+
+    cat_keys = list(_nav_categories.keys())
+    sel_cat = segmented("Category", cat_keys, key="nav_cat_selected",
+                        default_index=cat_keys.index(st.session_state["nav_cat_selected"]))
+
+    visible_labels = _nav_categories[sel_cat][1]
+
+    if cur_module in visible_labels:
+        default_radio_idx = visible_labels.index(cur_module)
+    else:
+        default_radio_idx = 0
+        cur_module = visible_labels[0]
+        st.session_state["module"] = cur_module
+
+    def _on_module_change():
+        st.session_state.module = st.session_state["mod_picker"]
+
+    module = st.radio("Module", visible_labels, index=default_radio_idx,
+                      key="mod_picker", on_change=_on_module_change,
+                      label_visibility="collapsed")
+    st.session_state.module = module
     view = NAME_BY_LABEL[module]
-    st.caption(MODULE_HELP[module])
+    st.caption(MODULE_HELP.get(module, ""))
 
     st.markdown("<div class='side-group'>Reporting basis</div>", unsafe_allow_html=True)
     period_label = st.selectbox("Chart period", list(PERIODS.keys()), index=5)
@@ -3671,6 +3758,26 @@ else:
                f"<b>{rate_text}</b>" + (f" · via {fx_source}" if fx_source else ""))
 
 extras = compute_extras(co)
+
+# --- Terminal Breadcrumb & Status Bar -----------------------------------------
+cur_cat_name = _cat_of(module) if "_cat_of" in locals() else "Overview"
+st.markdown(
+    f"<div class='terminal-bar'>"
+    f"<div class='terminal-crumbs'>"
+    f"<span class='crumb-brand'>{APP_NAME}</span>"
+    f"<span class='crumb-sep'>/</span>"
+    f"<span class='crumb-cat'>{cur_cat_name}</span>"
+    f"<span class='crumb-sep'>/</span>"
+    f"<span class='crumb-active'>{module}</span>"
+    f"</div>"
+    f"<div class='terminal-tags'>"
+    f"<span class='crumb-chip'>{co.ticker}</span>"
+    f"<span class='crumb-chip'>{target_currency}</span>"
+    f"<span class='crumb-chip'>{st.session_state.theme}</span>"
+    f"<span class='crumb-live'>LIVE DATA</span>"
+    f"</div>"
+    f"</div>",
+    unsafe_allow_html=True)
 
 # --- Header ------------------------------------------------------------------
 h_left, h_right = st.columns([3, 1.15], vertical_alignment="center")
@@ -3931,6 +4038,69 @@ position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
                            "Margin direction is usually a better early signal than any single year's level, "
                            "because it reflects pricing power and cost discipline before they reach earnings.",
                            data=margins)
+
+            # Annual Growth & Margin Progression Table
+            st.markdown("<div style='margin-top:22px'></div>", unsafe_allow_html=True)
+            gm_rows = []
+            rev_s = col(inc_d, "Total Revenue")
+            gp_s = col(inc_d, "Gross Profit")
+            op_s = col(inc_d, "Operating Income")
+            ni_s = col(inc_d, "Net Income")
+            fcf_s = col(cf_d, "Free Cash Flow")
+            if fcf_s is None or fcf_s.empty:
+                ocf_s = col(cf_d, "Operating Cash Flow")
+                capex_s = col(cf_d, "Capital Expenditure")
+                if ocf_s is not None and capex_s is not None:
+                    fcf_s = ocf_s + capex_s
+
+            for idx in inc_d.index:
+                yr_label = pd.Timestamp(idx).strftime("FY%Y")
+                r = rev_s.get(idx) if rev_s is not None else None
+                gp = gp_s.get(idx) if gp_s is not None else None
+                op = op_s.get(idx) if op_s is not None else None
+                ni = ni_s.get(idx) if ni_s is not None else None
+                fcf = fcf_s.get(idx) if fcf_s is not None else None
+
+                gm_rows.append({
+                    "Period": yr_label,
+                    "_date": pd.Timestamp(idx),
+                    "Revenue": r,
+                    "Gross Profit": gp,
+                    "Operating Income": op,
+                    "Net Income": ni,
+                    "Free Cash Flow": fcf,
+                })
+
+            if gm_rows:
+                gm_df = pd.DataFrame(gm_rows).sort_values("_date").set_index("Period")
+                gm_df["Revenue Growth %"] = gm_df["Revenue"].pct_change() * 100
+                gm_df["Gross Margin %"] = safe_div(gm_df["Gross Profit"], gm_df["Revenue"]) * 100
+                gm_df["Operating Margin %"] = safe_div(gm_df["Operating Income"], gm_df["Revenue"]) * 100
+                gm_df["Net Margin %"] = safe_div(gm_df["Net Income"], gm_df["Revenue"]) * 100
+                gm_df["FCF Margin %"] = safe_div(gm_df["Free Cash Flow"], gm_df["Revenue"]) * 100
+
+                disp_cols = ["Revenue", "Revenue Growth %", "Gross Profit", "Gross Margin %",
+                             "Operating Income", "Operating Margin %", "Net Income", "Net Margin %",
+                             "Free Cash Flow", "FCF Margin %"]
+                disp_df = gm_df[[c for c in disp_cols if c in gm_df.columns]].dropna(how="all", subset=["Revenue", "Net Income"])
+
+                gm_formats = {
+                    "Revenue": lambda v: Fmt.money(v, sym),
+                    "Revenue Growth %": "{:+,.1f}%",
+                    "Gross Profit": lambda v: Fmt.money(v, sym),
+                    "Gross Margin %": "{:,.1f}%",
+                    "Operating Income": lambda v: Fmt.money(v, sym),
+                    "Operating Margin %": "{:,.1f}%",
+                    "Net Income": lambda v: Fmt.money(v, sym),
+                    "Net Margin %": "{:,.1f}%",
+                    "Free Cash Flow": lambda v: Fmt.money(v, sym),
+                    "FCF Margin %": "{:,.1f}%",
+                }
+                
+                pct_cols = [c for c in disp_df.columns if "%" in c]
+                table(disp_df, "Annual growth and margin progression",
+                      f"Key financial figures and profitability margins by fiscal year in {target_currency}, highlighting expansion and contraction across all reported years.",
+                      formats=gm_formats, color_cols=pct_cols)
 
     # -- Valuation -------------------------------------------------------------
     with tabs[1]:
@@ -5020,9 +5190,15 @@ elif view == "Financial Statements":
                 formats[c] = "{:+,.1f}%"
             elif label == "Change":
                 formats[c] = "{:+,.0f}"
-            else:
-                formats[c] = fmt
-        table(sub, title, what, formats=formats)
+        color_cols = []
+        if stmt_view == "Growth":
+            color_cols = list(sub.columns)
+        elif stmt_view == "Reported":
+            color_cols = [c for c in ("Change", "Change %") if c in sub.columns]
+        elif stmt_view == "Common size":
+            color_cols = [c for c in ("Gap (pp)",) if c in sub.columns]
+
+        table(sub, title, what, formats=formats, color_cols=color_cols)
 
     t_inc, t_bs, t_cf, t_guide = st.tabs(["Income statement", "Balance sheet", "Cash flow",
                                           "Line by line"])
