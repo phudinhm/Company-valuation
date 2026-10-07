@@ -206,8 +206,8 @@ html, body, [class*="css"] {
 [data-testid="stAppViewContainer"] { background: var(--bg-grad); }
 [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] li,
 [data-testid="stAppViewContainer"] label, [data-testid="stMarkdownContainer"] p { font-size: var(--fs-body); }
-.block-container { padding-top: 2rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
-[data-testid="stHeader"] { display: none !important; }
+.block-container { padding-top: 3rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
+[data-testid="stHeader"] { background-color: transparent !important; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
@@ -484,7 +484,7 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 /* ---------- Mobile ---------- */
 @media (max-width: 780px) {
   :root { --card-pad: 15px 16px; --kpi-pad: 14px 15px; --gap: 10px; }
-  .block-container { padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 1.2rem; }
+  .block-container { padding-left: 0.85rem; padding-right: 0.85rem; padding-top: 3rem; }
   .terminal-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
   .px-box { text-align: left; margin-top: 12px; }
   .score-row { grid-template-columns: 140px 1fr 44px; gap: 10px; }
