@@ -206,7 +206,8 @@ html, body, [class*="css"] {
 [data-testid="stAppViewContainer"] { background: var(--bg-grad); }
 [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] li,
 [data-testid="stAppViewContainer"] label, [data-testid="stMarkdownContainer"] p { font-size: var(--fs-body); }
-.block-container { padding-top: 1.6rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
+.block-container { padding-top: 2rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
+[data-testid="stHeader"] { display: none !important; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
@@ -470,6 +471,15 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3.5px;
     background: var(--accent); border-radius: 0 3px 3px 0;
 }
+
+/* ---------- Line by line definitions ---------- */
+.defn { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; padding: var(--card-pad); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.defn:hover { border-color: var(--accent_soft); box-shadow: 0 4px 12px var(--shadow); }
+.defn-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.defn-name { font-size: var(--fs-section); font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.defn-val { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-section); font-weight: 600; color: var(--accent); }
+.defn-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; margin-bottom: 10px; font-size: var(--fs-card); color: var(--text); line-height: 1.5; }
+.defn-k { font-weight: 600; color: var(--muted); }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 780px) {
@@ -999,7 +1009,7 @@ SEC_ANNUAL_FORMS = ("10-K", "20-F", "40-F")
 SEC_QUARTER_FORMS = ("10-Q",)
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=86400, show_spinner=False)
 def _sec_cik(ticker: str):
     """Maps a ticker to its SEC central index key. US listings only."""
     base = (ticker or "").split(".")[0].upper().replace("-", "")
@@ -1052,7 +1062,7 @@ def _sec_series(facts: dict, tags, instant: bool, forms) -> pd.Series:
     return None
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=86400, show_spinner=False)
 def load_sec_statements(ticker: str, quarterly: bool = False) -> dict:
     """Income statement, balance sheet and cash flow rebuilt from EDGAR's XBRL
     company facts, in the same shape as the primary source's."""
@@ -1098,17 +1108,17 @@ def load_sec_statements(ticker: str, quarterly: bool = False) -> dict:
 
 # --- cached loaders ----------------------------------------------------------
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_info(ticker: str) -> dict:
     return _fetch_info(ticker)
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_fast_info(ticker: str) -> dict:
     return _fetch_fast_info(ticker)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def estimate_beta(ticker: str, benchmark: str = "SPY"):
     """Beta from two years of daily returns against a broad index, used when the
     quote endpoint does not report one."""
@@ -1148,7 +1158,7 @@ def _cap_recent_periods(statements: dict, quarterly: bool) -> dict:
             for key, frame in statements.items()}
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def load_statements(ticker: str, quarterly: bool = False) -> dict:
     t = yf.Ticker(ticker)
     out = {}
@@ -1185,7 +1195,7 @@ def load_statements(ticker: str, quarterly: bool = False) -> dict:
     return out
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_history(ticker: str, period: str = "1y", interval: str = "1d") -> pd.DataFrame:
     df = _fetch_history(ticker, period, interval)
     if isinstance(df, pd.DataFrame) and not df.empty:
@@ -1202,7 +1212,7 @@ def load_history(ticker: str, period: str = "1y", interval: str = "1d") -> pd.Da
     return df
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=1800, show_spinner=False)
 def load_risk_free_rate() -> float:
     """US 10-year yield, used as the CAPM risk-free rate. Falls back to a
     documented constant so the DCF never dies on a network hiccup."""
@@ -1217,7 +1227,7 @@ def load_risk_free_rate() -> float:
     return 0.042
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def load_batch_close(tickers: tuple, start, end) -> pd.DataFrame:
     """One bulk price download instead of one request per ticker."""
     if not tickers:
@@ -1350,7 +1360,7 @@ class CurrencyFX:
         return r, used
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def load_fx_detail(from_curr: str, to_curr: str) -> dict:
     rate, source = CurrencyFX.rate_with_source(from_curr, to_curr)
     return {"rate": rate, "source": source}
@@ -1524,7 +1534,7 @@ def _frame(obj) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def load_analyst(ticker: str) -> dict:
     """Everything the analyst endpoints carry, fetched in one place.
 
@@ -1676,7 +1686,7 @@ def news_keywords(company_name: str, ticker: str, sector: str = "", industry: st
     return base, terms
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_news(ticker: str, sector: str, max_items: int = 6, company_name: str = ""):
     """Company headlines plus headlines for a representative sector ETF.
 
@@ -1832,7 +1842,7 @@ def _probe_as_symbol(query, suffixes):
     return [h for h in parallel_map(check, candidates[:14]) if h]
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=1800, show_spinner=False)
 def search_ticker(query: str, max_results: int = 12):
     """Resolves a company name, or a partial symbol, to tradable symbols.
 
@@ -1864,7 +1874,7 @@ def search_ticker(query: str, max_results: int = 12):
     return results[:max_results]
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def sector_top_holdings(etf_symbol: str, max_n: int = 15):
     """A sector SPDR ETF is market-cap weighted, so its top holdings *are* that
     sector's current leaders - and they rotate automatically as the market does."""
@@ -1878,7 +1888,7 @@ def sector_top_holdings(etf_symbol: str, max_n: int = 15):
         return []
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def ticker_names(tickers: tuple) -> dict:
     known = {"SPY": "SPDR S&P 500 ETF Trust", "QQQ": "Invesco QQQ Trust (Nasdaq-100)"}
     todo = [t for t in tickers if t not in known]
@@ -1889,7 +1899,7 @@ def ticker_names(tickers: tuple) -> dict:
     return {t: out.get(t, "") for t in tickers}
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def filter_by_sector(tickers: tuple, sector_name: str):
     """Keeps tickers whose own live-reported sector matches - lets a Market pool
     and a Sector filter be combined, which ETF holdings alone cannot do."""
@@ -1897,7 +1907,7 @@ def filter_by_sector(tickers: tuple, sector_name: str):
     return [t for t, i in zip(tickers, infos) if i.get("sector") == sector_name]
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def suggest_peers(ticker: str, sector: str, industry: str, max_n: int = 8):
     """Peers matched on the finer-grained `industry` classification where
     possible, falling back to same-sector names. Candidates come from the
@@ -1919,7 +1929,7 @@ def suggest_peers(ticker: str, sector: str, industry: str, max_n: int = 8):
     return result[:max_n]
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_comparables(tickers: tuple, target_currency: str) -> pd.DataFrame:
     """The peer matrix, fetched concurrently. Previously this was a serial loop
     of `.info` calls with a bare `except: pass`, which made a 10-name peer group
@@ -1965,7 +1975,7 @@ def load_comparables(tickers: tuple, target_currency: str) -> pd.DataFrame:
     return pd.DataFrame(rows).set_index("Ticker") if rows else pd.DataFrame()
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_leaderboard(tickers: tuple, target_currency: str, as_of: str) -> pd.DataFrame:
     """Leaderboard rows: one bulk price download plus a concurrent profile
     fetch, instead of two sequential network calls per company."""
@@ -2010,7 +2020,7 @@ def load_leaderboard(tickers: tuple, target_currency: str, as_of: str) -> pd.Dat
 
 # --- Industry benchmarks -----------------------------------------------------
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=3600, show_spinner=False)
 def load_industry_commonsize(tickers: tuple) -> dict:
     """Median common-size statements across a peer group.
 
@@ -2908,7 +2918,7 @@ def twrr(values: pd.Series, flows: pd.Series):
     return float((1 + daily).prod() - 1)
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(max_entries=50, ttl=900, show_spinner=False)
 def load_portfolio_history(holdings: tuple, target_currency: str):
     """Daily value of a set of holdings, plus two dated flow series.
 
@@ -3607,44 +3617,16 @@ with st.sidebar:
 
     st.markdown("<div class='side-group'>View</div>", unsafe_allow_html=True)
 
-    _nav_categories = {
-        "Overview": ("Overview & Setup", [MODULE_LABELS[0], MODULE_LABELS[1], MODULE_LABELS[2]]),
-        "Financials": ("Financials & Health", [MODULE_LABELS[5], MODULE_LABELS[6], MODULE_LABELS[8], MODULE_LABELS[9]]),
-        "Valuation": ("Valuation & Pricing", [MODULE_LABELS[10], MODULE_LABELS[11], MODULE_LABELS[16]]),
-        "Analysis": ("Analysis & Risk", [MODULE_LABELS[3], MODULE_LABELS[4], MODULE_LABELS[7], MODULE_LABELS[13]]),
-        "Portfolio": ("Markets & Portfolio", [MODULE_LABELS[12], MODULE_LABELS[14], MODULE_LABELS[15], MODULE_LABELS[17]]),
-        "All": ("All Modules", MODULE_LABELS),
-    }
-
-    def _cat_of(m):
-        for c, (_, lbls) in _nav_categories.items():
-            if c != "All" and m in lbls:
-                return c
-        return "Overview"
-
     cur_module = st.session_state.get("module", MODULE_LABELS[1])
-    default_cat = _cat_of(cur_module)
-
-    if "nav_cat_selected" not in st.session_state:
-        st.session_state["nav_cat_selected"] = default_cat
-
-    cat_keys = list(_nav_categories.keys())
-    sel_cat = segmented("Category", cat_keys, key="nav_cat_selected",
-                        default_index=cat_keys.index(st.session_state["nav_cat_selected"]))
-
-    visible_labels = _nav_categories[sel_cat][1]
-
-    if cur_module in visible_labels:
-        default_radio_idx = visible_labels.index(cur_module)
+    if cur_module in MODULE_LABELS:
+        default_radio_idx = MODULE_LABELS.index(cur_module)
     else:
-        default_radio_idx = 0
-        cur_module = visible_labels[0]
-        st.session_state["module"] = cur_module
+        default_radio_idx = 1
 
     def _on_module_change():
         st.session_state.module = st.session_state["mod_picker"]
 
-    module = st.radio("Module", visible_labels, index=default_radio_idx,
+    module = st.radio("Module", MODULE_LABELS, index=default_radio_idx,
                       key="mod_picker", on_change=_on_module_change,
                       label_visibility="collapsed")
     st.session_state.module = module
@@ -3779,13 +3761,10 @@ else:
 extras = compute_extras(co)
 
 # --- Terminal Breadcrumb & Status Bar -----------------------------------------
-cur_cat_name = _cat_of(module) if "_cat_of" in locals() else "Overview"
 st.markdown(
     f"<div class='terminal-bar'>"
     f"<div class='terminal-crumbs'>"
     f"<span class='crumb-brand'>{APP_NAME}</span>"
-    f"<span class='crumb-sep'>/</span>"
-    f"<span class='crumb-cat'>{cur_cat_name}</span>"
     f"<span class='crumb-sep'>/</span>"
     f"<span class='crumb-active'>{module}</span>"
     f"</div>"
@@ -5209,6 +5188,8 @@ elif view == "Financial Statements":
                 formats[c] = "{:+,.1f}%"
             elif label == "Change":
                 formats[c] = "{:+,.0f}"
+            else:
+                formats[c] = fmt
         color_cols = []
         if stmt_view == "Growth":
             color_cols = list(sub.columns)
@@ -6609,7 +6590,7 @@ elif view == "Risk & Scenarios":
         seed = st.number_input("Random seed", value=42, step=1,
                                help="Fixing the seed makes the simulation reproducible between runs.")
 
-    @st.cache_data(ttl=1800, show_spinner=False)
+    @st.cache_data(max_entries=50, ttl=1800, show_spinner=False)
     def simulate(last_price: float, mu: float, sigma: float, days: int, paths: int, seed: int):
         """Vectorised geometric random walk. The previous implementation used a
         nested Python loop over paths and days; this generates the whole matrix
