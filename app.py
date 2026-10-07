@@ -4072,10 +4072,10 @@ position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
             if gm_rows:
                 gm_df = pd.DataFrame(gm_rows).sort_values("_date").set_index("Period")
                 gm_df["Revenue Growth %"] = gm_df["Revenue"].pct_change() * 100
-                gm_df["Gross Margin %"] = safe_div(gm_df["Gross Profit"], gm_df["Revenue"]) * 100
-                gm_df["Operating Margin %"] = safe_div(gm_df["Operating Income"], gm_df["Revenue"]) * 100
-                gm_df["Net Margin %"] = safe_div(gm_df["Net Income"], gm_df["Revenue"]) * 100
-                gm_df["FCF Margin %"] = safe_div(gm_df["Free Cash Flow"], gm_df["Revenue"]) * 100
+                gm_df["Gross Margin %"] = (gm_df["Gross Profit"] / gm_df["Revenue"].replace(0, np.nan)) * 100
+                gm_df["Operating Margin %"] = (gm_df["Operating Income"] / gm_df["Revenue"].replace(0, np.nan)) * 100
+                gm_df["Net Margin %"] = (gm_df["Net Income"] / gm_df["Revenue"].replace(0, np.nan)) * 100
+                gm_df["FCF Margin %"] = (gm_df["Free Cash Flow"] / gm_df["Revenue"].replace(0, np.nan)) * 100
 
                 disp_cols = ["Revenue", "Revenue Growth %", "Gross Profit", "Gross Margin %",
                              "Operating Income", "Operating Margin %", "Net Income", "Net Margin %",
