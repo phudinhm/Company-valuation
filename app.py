@@ -421,16 +421,36 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .foot { border-top: 1px solid var(--border); margin-top: 36px; padding: 16px 0 6px;
     font-size: var(--fs-small); color: var(--faint); line-height: 1.65; }
 
-/* ---------- Floating sidebar panel ---------- */
-[data-testid="stSidebar"] { background: transparent; border-right: none; }
+/* ---------- Floating sidebar panel ----------
+   Fixed instead of flexed, so it reads as a panel floating above the report
+   - elevated, rounded, pinned in place while the report scrolls underneath -
+   rather than a flush column that scrolls away with the page. The main
+   column still reserves room for it while it's open (via :has below) so
+   the floating panel never sits on top of, and hides, real content; closing
+   it hands that width straight back. */
+[data-testid="stSidebar"] {
+    background: transparent; border-right: none;
+    position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 999;
+}
 [data-testid="stSidebarContent"] {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px;
     margin: 10px 6px 10px 10px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
     box-shadow: 0 12px 32px var(--shadow);
 }
 [data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; }
+[data-testid="stMain"] { transition: margin-left .18s ease; }
+[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
+    margin-left: 316px;
+}
+@media (max-width: 780px) {
+    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
+        margin-left: 0;
+    }
+}
 [data-testid="stSidebarUserContent"] { padding-top: .35rem; }
 
 /* ---------- Module navigator: visible tabs & cards ---------- */
