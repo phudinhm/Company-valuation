@@ -53,10 +53,7 @@ st.set_page_config(
     page_title=APP_NAME,
     page_icon=None,
     layout="wide",
-    # "auto" keeps the sidebar open on a desktop but collapses it on a phone,
-    # where "expanded" would land the reader on the controls rather than on the
-    # report they asked for.
-    initial_sidebar_state="auto",
+    initial_sidebar_state="expanded",
 )
 
 # A single source of truth for colour: the same dictionary drives the CSS
