@@ -208,6 +208,8 @@ html, body, [class*="css"] {
 [data-testid="stAppViewContainer"] label, [data-testid="stMarkdownContainer"] p { font-size: var(--fs-body); }
 .block-container { padding-top: 3rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
 [data-testid="stHeader"] { background-color: transparent !important; }
+[data-testid="collapsedControl"] { display: flex !important; background-color: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 50% !important; box-shadow: 0 4px 12px var(--shadow) !important; z-index: 999999 !important; color: var(--text) !important; }
+[data-testid="collapsedControl"] svg { fill: var(--text) !important; color: var(--text) !important; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
