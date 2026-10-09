@@ -427,11 +427,24 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
    rather than a flush column that scrolls away with the page. The main
    column still reserves room for it while it's open (via :has below) so
    the floating panel never sits on top of, and hides, real content; closing
-   it hands that width straight back. */
-[data-testid="stSidebar"] {
-    background: transparent; border-right: none;
-    position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 999;
+   it hands that width straight back.
+
+   Desktop only (min-width 781px): on a phone, fixed positioning plus this
+   app's own CSS stacking is a plausible source of a sidebar that opens
+   visually but swallows the tap meant for it, or vice versa - a risk not
+   worth taking on the platform where the open/close control is hardest to
+   reach in the first place. Mobile keeps Streamlit's native sidebar
+   behaviour, which is a plain flexed column, not a floating panel. */
+@media (min-width: 781px) {
+    [data-testid="stSidebar"] {
+        position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 999;
+    }
+    [data-testid="stMain"] { transition: margin-left .18s ease; }
+    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
+        margin-left: 316px;
+    }
 }
+[data-testid="stSidebar"] { background: transparent; border-right: none; }
 [data-testid="stSidebarContent"] {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -442,15 +455,6 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     box-shadow: 0 12px 32px var(--shadow);
 }
 [data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; }
-[data-testid="stMain"] { transition: margin-left .18s ease; }
-[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
-    margin-left: 316px;
-}
-@media (max-width: 780px) {
-    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
-        margin-left: 0;
-    }
-}
 [data-testid="stSidebarUserContent"] { padding-top: .35rem; }
 
 /* ---------- Module navigator: visible tabs & cards ---------- */
