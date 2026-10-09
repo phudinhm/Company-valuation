@@ -206,16 +206,29 @@ html, body, [class*="css"] {
 .block-container { padding-top: 3rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
 [data-testid="stHeader"] { background-color: transparent !important; }
 /* The header's own background is transparent (above), so its icons - the
-   sidebar expand/collapse arrow among them - lose the contrast they'd get
+   sidebar expand/collapse arrows among them - lose the contrast they'd get
    from Streamlit's default header fill and can vanish against a light page
-   background. Pin their colour explicitly instead of inheriting it. */
-[data-testid="stHeader"] svg { fill: var(--text) !important; color: var(--text) !important; }
+   background. These arrows render as Material Symbols ligature glyphs
+   (span[data-testid="stIconMaterial"]), not <svg>, so colour them via
+   `color`, in the accent colour rather than plain text - a deliberately
+   different, unmissable colour rather than one that merely matches
+   whatever sits behind it. The svg/collapsedControl selectors are kept too
+   as a harmless fallback for Streamlit versions whose markup differs. */
+[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
+    color: var(--accent) !important;
+}
+[data-testid="stExpandSidebarButton"] {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 1px 3px var(--shadow);
+}
+[data-testid="stHeader"] svg { fill: var(--accent) !important; color: var(--accent) !important; }
 [data-testid="stSidebarCollapsedControl"] {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; box-shadow: 0 1px 3px var(--shadow);
 }
-[data-testid="stSidebarCollapsedControl"] button { color: var(--text) !important; }
-[data-testid="stSidebarCollapsedControl"] svg { fill: var(--text) !important; }
+[data-testid="stSidebarCollapsedControl"] button { color: var(--accent) !important; }
+[data-testid="stSidebarCollapsedControl"] svg { fill: var(--accent) !important; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
