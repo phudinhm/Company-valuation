@@ -206,16 +206,29 @@ html, body, [class*="css"] {
 .block-container { padding-top: 3rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
 [data-testid="stHeader"] { background-color: transparent !important; }
 /* The header's own background is transparent (above), so its icons - the
-   sidebar expand/collapse arrow among them - lose the contrast they'd get
+   sidebar expand/collapse arrows among them - lose the contrast they'd get
    from Streamlit's default header fill and can vanish against a light page
-   background. Pin their colour explicitly instead of inheriting it. */
-[data-testid="stHeader"] svg { fill: var(--text) !important; color: var(--text) !important; }
+   background. These arrows render as Material Symbols ligature glyphs
+   (span[data-testid="stIconMaterial"]), not <svg>, so colour them via
+   `color`, in the accent colour rather than plain text - a deliberately
+   different, unmissable colour rather than one that merely matches
+   whatever sits behind it. The svg/collapsedControl selectors are kept too
+   as a harmless fallback for Streamlit versions whose markup differs. */
+[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
+    color: var(--accent) !important;
+}
+[data-testid="stExpandSidebarButton"] {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 1px 3px var(--shadow);
+}
+[data-testid="stHeader"] svg { fill: var(--accent) !important; color: var(--accent) !important; }
 [data-testid="stSidebarCollapsedControl"] {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; box-shadow: 0 1px 3px var(--shadow);
 }
-[data-testid="stSidebarCollapsedControl"] button { color: var(--text) !important; }
-[data-testid="stSidebarCollapsedControl"] svg { fill: var(--text) !important; }
+[data-testid="stSidebarCollapsedControl"] button { color: var(--accent) !important; }
+[data-testid="stSidebarCollapsedControl"] svg { fill: var(--accent) !important; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
@@ -421,13 +434,37 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .foot { border-top: 1px solid var(--border); margin-top: 36px; padding: 16px 0 6px;
     font-size: var(--fs-small); color: var(--faint); line-height: 1.65; }
 
-/* ---------- Floating sidebar panel ---------- */
+/* ---------- Floating sidebar panel ----------
+   Fixed instead of flexed, so it reads as a panel floating above the report
+   - elevated, rounded, pinned in place while the report scrolls underneath -
+   rather than a flush column that scrolls away with the page. The main
+   column still reserves room for it while it's open (via :has below) so
+   the floating panel never sits on top of, and hides, real content; closing
+   it hands that width straight back.
+
+   Desktop only (min-width 781px): on a phone, fixed positioning plus this
+   app's own CSS stacking is a plausible source of a sidebar that opens
+   visually but swallows the tap meant for it, or vice versa - a risk not
+   worth taking on the platform where the open/close control is hardest to
+   reach in the first place. Mobile keeps Streamlit's native sidebar
+   behaviour, which is a plain flexed column, not a floating panel. */
+@media (min-width: 781px) {
+    [data-testid="stSidebar"] {
+        position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 999;
+    }
+    [data-testid="stMain"] { transition: margin-left .18s ease; }
+    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
+        margin-left: 316px;
+    }
+}
 [data-testid="stSidebar"] { background: transparent; border-right: none; }
 [data-testid="stSidebarContent"] {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px;
     margin: 10px 6px 10px 10px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
     box-shadow: 0 12px 32px var(--shadow);
 }
 [data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; }
