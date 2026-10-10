@@ -3927,21 +3927,81 @@ if view == "Executive Dashboard":
                         key=lambda p: p.score, default=None)
         weakest = min((p for p in scorecard["pillars"] if p.score is not None),
                       key=lambda p: p.score, default=None)
+        def _pe_interpretation(pe):
+            if not _isnum(pe) or pe <= 0: return "The market is currently not pricing in any meaningful near-term earnings."
+            if pe > 40: return "The market is pricing in aggressive future growth or a rapid turnaround, demanding a significant premium."
+            if pe > 25: return "Investors are paying a premium, reflecting optimism about sustained growth and quality."
+            if pe > 12: return "This is a relatively moderate valuation, suggesting stable, mature expectations."
+            return "The market is heavily discounting the stock, which could indicate deep value or significant structural risks."
+
+        def _fcf_interpretation(fcf):
+            if fcf is None: return ""
+            if fcf > 0.08: return " This implies an exceptionally strong cash return on the current valuation."
+            if fcf > 0.04: return " This represents a healthy cash yield."
+            if fcf > 0: return " However, the cash yield is relatively thin."
+            return " The business is currently burning cash."
+
+        def _profit_interpretation(roe, margin):
+            roes = f"A return on equity of {Fmt.as_pct(roe)}" if _isnum(roe) else "Unreported equity returns"
+            mars = f"operating margins of {Fmt.as_pct(margin)}" if _isnum(margin) else "unreported margins"
+            
+            if _isnum(roe) and _isnum(margin):
+                if roe > 0.15 and margin > 0.15:
+                    eval_str = "highlighting a highly efficient and structurally profitable moat."
+                elif roe > 0 or margin > 0:
+                    eval_str = "showing adequate but not exceptional profitability."
+                else:
+                    eval_str = "indicating structural unprofitability or a severe cyclical downturn."
+            else:
+                eval_str = "making it difficult to assess true profitability."
+                
+            return f"{roes} on {mars}, {eval_str}"
+            
+        def _debt_interpretation(de, net_debt):
+            if de is None: return "Leverage is unreported."
+            de_str = f"Debt to equity stands at {Fmt.ratio(de)}."
+            if de > 2.0: 
+                eval_str = "This is a highly leveraged capital structure that leaves little margin for error."
+            elif de > 1.0:
+                eval_str = "This shows significant leverage, which amplifies both returns and risks."
+            elif de > 0.2:
+                eval_str = "The balance sheet uses a moderate, conservative mix of debt."
+            else:
+                eval_str = "The business is almost entirely equity-funded with very little structural debt."
+            
+            cash_str = f" The company sits on a net {'debt' if net_debt >= 0 else 'cash'} position of {Fmt.money(conv(abs(net_debt), fx), sym)}." if net_debt is not None else ""
+            return f"{de_str} {eval_str}{cash_str}"
+
+        def _momentum_interpretation(vs_sma, range_pos):
+            res = []
+            if vs_sma is not None:
+                if vs_sma > 0.1: res.append("Trading with strong upward momentum well above its 200-day trend.")
+                elif vs_sma > 0: res.append("Holding slightly above its long-term moving average.")
+                elif vs_sma > -0.1: res.append("Drifting slightly below its long-term moving average.")
+                else: res.append("Showing severe technical weakness, trading well below its 200-day trend.")
+            
+            if range_pos is not None:
+                if range_pos > 0.8: res.append("The stock is bumping against its 52-week highs.")
+                elif range_pos < 0.2: res.append("The stock is languishing near its 52-week lows.")
+            return " ".join(res)
+
         note(f"""
 **{co.name}** is a {co.industry.lower() if co.industry != Fmt.NA else 'diversified'} business in the
 {co.sector} sector, capitalised at **{Fmt.money(conv(co.market_cap, fx), sym)}** and trading at
 **{Fmt.price((co.price or 0) * fx, sym)}**.
-- **What the market pays.** {'A trailing P/E of ' + Fmt.ratio(pe) if _isnum(pe) and pe > 0 else 'Earnings are negative or unreported, so P/E is not meaningful'}
-{' and a free cash flow yield of ' + Fmt.as_pct(fcf_yield) if fcf_yield is not None else ''}.
-{'The shares sit ' + Fmt.as_pct(extras.get('vs_sma200'), signed=True) + ' versus their 200-day average' if extras.get('vs_sma200') is not None else ''}
-{' and ' + f"{extras['range_pos']*100:.0f}% of the way up the 52-week range" if extras.get('range_pos') is not None else ''}.
-- **What the business earns.** Return on equity of {Fmt.as_pct(info.get('returnOnEquity'))} on operating
-margins of {Fmt.as_pct(info.get('operatingMargins'))}{', with revenue compounding at ' + Fmt.as_pct(rev_cagr) + ' over the reported history' if rev_cagr is not None else ''}.
-- **How it is financed.** {'Debt to equity of ' + Fmt.ratio(de) if de is not None else 'Leverage is unreported'}
-with a current ratio of {Fmt.ratio(info.get('currentRatio'))} and a net {'debt' if co.net_debt >= 0 else 'cash'}
-position of {Fmt.money(conv(abs(co.net_debt), fx), sym)}.
-- **Where to look next.** {'Strongest pillar: **' + strongest.name + f'** ({strongest.score:.0f}/100). ' if strongest else ''}
-{'Weakest: **' + weakest.name + f'** ({weakest.score:.0f}/100) — start there.' if weakest else ''}
+
+- **What the market pays.** A trailing P/E of {Fmt.ratio(pe) if _isnum(pe) and pe > 0 else 'N/A'}. {_pe_interpretation(pe)}
+{'Its free cash flow yield is ' + Fmt.as_pct(fcf_yield) + '.' if fcf_yield is not None else ''}{_fcf_interpretation(fcf_yield)}
+{_momentum_interpretation(extras.get('vs_sma200'), extras.get('range_pos'))}
+
+- **What the business earns.** {_profit_interpretation(info.get('returnOnEquity'), info.get('operatingMargins'))}
+{'Revenue has compounded at ' + Fmt.as_pct(rev_cagr) + ' over the reported history.' if rev_cagr is not None else ''}
+
+- **How it is financed.** {_debt_interpretation(de, co.net_debt)}
+Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('currentRatio')) else 'unreported'}.
+
+- **Where to look next.** {'The fundamental data shows clear strength in **' + strongest.name + f'** ({strongest.score:.0f}/100).' if strongest else ''}
+{'However, it is heavily dragged down by **' + weakest.name + f'** ({weakest.score:.0f}/100) — this is the most critical area to investigate.' if weakest else ''}
 """, tone="pos" if (total or 0) >= 65 else "warn" if (total or 0) >= 40 else "neg",
              title="What the numbers say")
 
