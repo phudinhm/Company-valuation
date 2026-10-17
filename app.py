@@ -209,31 +209,64 @@ html, body, [class*="css"] {
     color: var(--text) !important; opacity: 1 !important; font-weight: 500;
 }
 .block-container { padding-top: 3rem; padding-bottom: 4rem; max-width: 1560px; animation: appFadeIn 0.22s ease-out; }
-[data-testid="stHeader"] { background-color: transparent !important; }
-/* The header's own background is transparent (above), so its icons - the
-   sidebar expand/collapse arrows among them - lose the contrast they'd get
-   from Streamlit's default header fill and can vanish against a light page
-   background. These arrows render as Material Symbols ligature glyphs
-   (span[data-testid="stIconMaterial"]), not <svg>, so colour them via
-   `color`, in the accent colour rather than plain text - a deliberately
-   different, unmissable colour rather than one that merely matches
-   whatever sits behind it. The svg/collapsedControl selectors are kept too
-   as a harmless fallback for Streamlit versions whose markup differs. */
-[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"],
-[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
+[data-testid="stHeader"] {
+    background-color: transparent !important;
+    pointer-events: none !important;
+}
+[data-testid="stHeader"] button,
+[data-testid="stHeader"] a,
+[data-testid="stHeader"] [data-testid="stToolbar"],
+[data-testid="stHeader"] [data-testid="stToolbar"] *,
+[data-testid="stHeader"] [data-testid="stExpandSidebarButton"],
+[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"],
+[data-testid="stHeader"] [data-testid="collapsedControl"] {
+    pointer-events: auto !important;
+}
+
+/* Sidebar collapse/expand toggle buttons styling, contrast and clickability */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarHeader"] button {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 1000005 !important;
+}
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapseButton"] svg {
+    color: var(--accent) !important;
+    fill: var(--accent) !important;
+}
+
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 1000005 !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px var(--shadow) !important;
+}
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button {
+    cursor: pointer !important;
+    pointer-events: auto !important;
     color: var(--accent) !important;
 }
-[data-testid="stExpandSidebarButton"] {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; box-shadow: 0 1px 3px var(--shadow);
+[data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapsedControl"] [data-testid="stIconMaterial"],
+[data-testid="collapsedControl"] [data-testid="stIconMaterial"],
+[data-testid="stExpandSidebarButton"] svg,
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg,
+[data-testid="stHeader"] svg {
+    color: var(--accent) !important;
+    fill: var(--accent) !important;
 }
-[data-testid="stHeader"] svg { fill: var(--accent) !important; color: var(--accent) !important; }
-[data-testid="stSidebarCollapsedControl"] {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; box-shadow: 0 1px 3px var(--shadow);
-}
-[data-testid="stSidebarCollapsedControl"] button { color: var(--accent) !important; }
-[data-testid="stSidebarCollapsedControl"] svg { fill: var(--accent) !important; }
 h1,h2,h3,h4,h5,h6 { font-family: 'Inter', sans-serif; letter-spacing: -0.018em; color: var(--text) !important; }
 a { color: var(--accent); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
@@ -550,7 +583,21 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
    behaviour, which is a plain flexed column, not a floating panel. */
 @media (min-width: 781px) {
     [data-testid="stSidebar"] {
-        position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 999;
+        position: fixed !important; top: 0; left: 0; height: 100vh;
+        z-index: 1000000 !important;
+        transition: transform .2s ease, margin-left .2s ease, visibility .2s ease !important;
+    }
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        transform: translateX(-105%) !important;
+        margin-left: -350px !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        transform: none !important;
+        margin-left: 0 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
     }
     [data-testid="stMain"] { transition: margin-left .18s ease; }
     [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
@@ -567,7 +614,7 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     overflow-y: auto;
     box-shadow: 0 12px 32px var(--shadow);
 }
-[data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; }
+[data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; pointer-events: auto !important; }
 [data-testid="stSidebarUserContent"] { padding-top: .35rem; }
 
 /* ---------- Module navigator: visible tabs & cards ---------- */
