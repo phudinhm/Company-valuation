@@ -3704,13 +3704,151 @@ def segmented(label, options, key, default_index=0, help=None):
     return st.radio(label, options, index=default_index, horizontal=True, key=key, help=help)
 
 
+def compute_monthly_returns(px_series: pd.Series) -> pd.DataFrame:
+    """Calculates monthly compound returns and total annual returns from a daily price series."""
+    if px_series is None or len(px_series) < 2:
+        return pd.DataFrame()
+    s = px_series.dropna().sort_index()
+    if hasattr(s.index, "tz_localize") and getattr(s.index, "tz", None) is not None:
+        s.index = s.index.tz_localize(None)
+    daily_ret = s.pct_change().dropna()
+    if daily_ret.empty:
+        return pd.DataFrame()
+
+    m_grp = (1 + daily_ret).groupby([daily_ret.index.year, daily_ret.index.month]).prod() - 1
+    m_df = (m_grp * 100).unstack(level=1)
+
+    month_names = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+                   7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"}
+    m_df = m_df.rename(columns=month_names)
+    for m in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]:
+        if m not in m_df.columns:
+            m_df[m] = np.nan
+    m_df = m_df[["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]]
+
+    y_grp = ((1 + daily_ret).groupby(daily_ret.index.year).prod() - 1) * 100
+    m_df["Year"] = y_grp
+    return m_df.sort_index(ascending=False)
+
+
+def render_returns_heatmap(co: Company, fx: float = 1.0, sym: str = "$", key_prefix: str = "rhm", record: bool = True):
+    """Renders an interactive monthly and annual return heatmap with summary KPIs and table."""
+    c_ctl1, _ = st.columns([1.6, 2.4])
+    with c_ctl1:
+        lookback = segmented("Lookback period", ["3 years", "5 years", "10 years", "All history"],
+                             key=f"{key_prefix}_lookback", default_index=1)
+    period_map = {"3 years": "3y", "5 years": "5y", "10 years": "10y", "All history": "max"}
+    period_sel = period_map.get(lookback, "5y")
+
+    with st.spinner("Calculating monthly returns…"):
+        hist = co.history(period_sel, "1d")
+
+    if hist.empty or "Close" not in hist.columns:
+        empty_state("No price history available to build return heat map.")
+        return
+
+    grid = compute_monthly_returns(hist["Close"])
+    if grid.empty:
+        empty_state("Not enough price history in the selected window to build return heat map.")
+        return
+
+    month_cols = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    all_months = grid[month_cols].values.flatten()
+    valid_months = all_months[~np.isnan(all_months)]
+
+    pos_months = int((valid_months > 0).sum())
+    total_months = len(valid_months)
+    pct_pos = (pos_months / total_months * 100) if total_months > 0 else 0
+    best_m = float(np.max(valid_months)) if total_months > 0 else 0
+    worst_m = float(np.min(valid_months)) if total_months > 0 else 0
+    avg_m = float(np.mean(valid_months)) if total_months > 0 else 0
+
+    cur_year = grid.index[0]
+    cur_y_ret = float(grid.loc[cur_year, "Year"]) if _isnum(grid.loc[cur_year, "Year"]) else 0
+
+    kpi_grid([
+        {"label": "Positive months", "value": f"{pct_pos:.1f}%",
+         "sub": f"{pos_months} of {total_months} months positive",
+         "tone": "good" if pct_pos >= 55 else "bad" if pct_pos < 45 else "warn"},
+        {"label": "Average monthly return", "value": f"{avg_m:+.2f}%",
+         "sub": "Arithmetic mean across all months",
+         "tone": "good" if avg_m > 0 else "bad"},
+        {"label": "Best month", "value": f"{best_m:+.1f}%",
+         "sub": f"Max monthly gain in {lookback.lower()}", "tone": "good"},
+        {"label": "Worst month", "value": f"{worst_m:+.1f}%",
+         "sub": f"Max monthly drop in {lookback.lower()}", "tone": "bad"},
+        {"label": f"{cur_year} return", "value": f"{cur_y_ret:+.1f}%",
+         "sub": f"{'Year-to-date' if cur_year == datetime.now().year else 'Full year'} return",
+         "tone": "good" if cur_y_ret >= 0 else "bad"},
+    ], min_width=175, record=False)
+
+    cols = list(grid.columns)  # Jan..Dec, Year
+    years_str = [str(y) for y in grid.index]
+
+    text_matrix = []
+    for y_idx in grid.index:
+        row_txt = []
+        for col_name in cols:
+            val = grid.loc[y_idx, col_name]
+            if not _isnum(val) or np.isnan(val):
+                row_txt.append("")
+            else:
+                row_txt.append(f"{val:+.1f}%")
+        text_matrix.append(row_txt)
+
+    colorscale = [
+        [0.0, T["danger"]],
+        [0.32, "#f87171"],
+        [0.48, "#fecaca"],
+        [0.5, "rgba(241, 245, 249, 0.35)"],
+        [0.52, "#a7f3d0"],
+        [0.68, "#34d399"],
+        [1.0, T["success"]],
+    ]
+
+    fig = go.Figure(go.Heatmap(
+        z=grid.values,
+        x=cols,
+        y=years_str,
+        text=text_matrix,
+        texttemplate="%{text}",
+        textfont=dict(family="IBM Plex Mono, monospace", size=11.5, color=T["text"]),
+        colorscale=colorscale,
+        zmid=0,
+        zmin=-18,
+        zmax=18,
+        colorbar=dict(
+            title="Return<br>(%)",
+            ticksuffix="%",
+            tickfont=dict(size=11, color=T["muted"]),
+            title_font=dict(size=12, color=T["text"]),
+        ),
+        hovertemplate="<b>%{y} %{x}</b><br>Return: %{text}<extra></extra>",
+        xgap=3,
+        ygap=3,
+    ))
+    chart_h = max(260, 80 + 36 * len(grid))
+    style_fig(fig, height=chart_h, legend="off")
+    fig.update_xaxes(side="top", showspikes=False, tickfont=dict(size=12.5, color=T["text"], family="Inter, sans-serif"))
+    fig.update_yaxes(type="category", autorange="reversed", showspikes=False, tickfont=dict(size=13, color=T["text"], family="IBM Plex Mono, monospace"))
+
+    figure(fig, f"Monthly and annual return heat map ({lookback})",
+           f"Compound share price returns by calendar month and full year for {co.ticker}. Green denotes positive performance, red denotes losses.",
+           "Scan **horizontally** to see seasonal monthly patterns (e.g. historical January effect or September weakness); "
+           "scan **vertically** by month to see if certain periods consistently outperform across changing macro environments. "
+           "The **Year** column sums the entire year's compound performance.",
+           "Past returns do not guarantee future performance, but identifying return distributions and drawdown clustering "
+           "helps contextualize volatility and investor expectations.",
+           data=grid, record=record)
+
+
 # ==============================================================================
 # 6. NAVIGATION & SHELL
 # ==============================================================================
 
 MODULES = [
     ("Guide & Method", "How the terminal is put together and when to use each module."),
-    ("Executive Dashboard", "One screen: composite score, valuation, profitability, health, dividends, quality flags."),
+    ("Executive Dashboard", "One screen: composite score, valuation, returns heat map, balance sheet, quality flags."),
     ("Key Statistics", "The full statistics sheet: profitability, balance sheet, trading, share count, dividends."),
     ("Estimates & Revisions", "Analyst revenue and earnings estimates, the beat-and-miss record, EPS trend and revisions."),
     ("Technical Analysis", "Price action, trend, momentum, volatility and a forward projection."),
@@ -3722,7 +3860,7 @@ MODULES = [
     ("Intrinsic Valuation", "Three-phase DCF, reverse DCF, scenarios and sensitivity."),
     ("Peer Comparables", "Relative valuation against live-matched industry peers."),
     ("Compare Companies", "Two or more companies side by side on price, quality, valuation and growth."),
-    ("Risk & Scenarios", "Volatility, drawdown, value at risk and Monte Carlo paths."),
+    ("Risk & Scenarios", "Volatility, drawdown, monthly return heat map, value at risk and Monte Carlo paths."),
     ("Investment Simulator", "What an investment made on a past date would be worth today."),
     ("Portfolio", "Allocation against targets, concentration limits, TWRR and money-weighted return."),
     ("Price & Capital Dynamics", "Price, market cap, news context and the EV bridge."),
@@ -4495,6 +4633,10 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                        "credit tightens.")
             else:
                 empty_state("Not enough balance-sheet detail to decompose ROE.")
+
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+        subhead("Monthly & annual return heat map", f"Calendar returns across months and fiscal years for {co.ticker}.")
+        render_returns_heatmap(co, fx=fx, sym=sym, key_prefix="dash_rhm", record=False)
 
     # -- Balance sheet ---------------------------------------------------------
     with tabs[3]:
@@ -6820,6 +6962,10 @@ elif view == "Risk & Scenarios":
                "volatility figure implies. The dashed line marks the 95% VaR threshold.",
                "Every model below, including the simulation, assumes something about this shape. Seeing the "
                "real one is a useful check on how much to trust them.")
+
+    section("Return heat map and seasonality",
+            "Historical month-by-month performance and annual returns across market cycles.")
+    render_returns_heatmap(co, fx=fx, sym=sym, key_prefix="risk_rhm", record=True)
 
     section("Forward simulation",
             "One year of possible paths, generated from this stock's own drift and volatility.")
