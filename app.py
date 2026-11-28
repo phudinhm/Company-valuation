@@ -21,6 +21,7 @@ Design rules applied throughout:
 
 from __future__ import annotations
 
+import html as _html
 import io
 import json
 import re
@@ -37,6 +38,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 from plotly.subplots import make_subplots
 from scipy.stats import norm
@@ -134,9 +136,30 @@ DEFAULTS = {
     "ticker_symbol_input": "AAPL",
     "explain_open": False,
     "_export": False,
+    "recent_tickers": ["AAPL", "MSFT", "NVDA", "SAP.DE", "VNM.VN"],
+    "auto_refresh": "Off",
+    "mod_filter": "",
 }
 for _k, _v in DEFAULTS.items():
     st.session_state.setdefault(_k, _v)
+
+if not st.session_state.get("_qp_loaded"):
+    st.session_state["_qp_loaded"] = True
+    try:
+        _qp = st.query_params
+        if _qp.get("theme") in THEMES:
+            st.session_state["theme"] = _qp["theme"]
+        if _qp.get("ticker"):
+            _qt = str(_qp["ticker"]).strip().upper()
+            if _qt:
+                st.session_state["ticker_symbol_input"] = _qt
+                st.session_state["_qp_ticker_raw"] = _qt
+        if _qp.get("view"):
+            st.session_state["_qp_view_raw"] = str(_qp["view"]).strip()
+        if _qp.get("currency") in ("Native", "USD", "EUR", "VND", "GBP", "JPY"):
+            st.session_state["currency_mode"] = _qp["currency"]
+    except Exception:
+        pass
 
 T = THEMES[st.session_state.theme]
 
@@ -227,9 +250,21 @@ html, body, [class*="css"] {
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapseButton"] button,
 [data-testid="stSidebarHeader"] button {
+    visibility: visible !important;
+    opacity: 1 !important;
     cursor: pointer !important;
     pointer-events: auto !important;
     z-index: 1000005 !important;
+}
+[data-testid="stSidebarCollapseButton"] button {
+    background: var(--surface-alt) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px var(--shadow) !important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover {
+    background: var(--neu-bg) !important;
+    border-color: var(--accent) !important;
 }
 [data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"],
 [data-testid="stSidebarCollapseButton"] svg {
@@ -282,11 +317,14 @@ hr { border-color: var(--border); }
 
 /* ---------- Tooltips & Help Icons ---------- */
 [data-testid="stTooltipIcon"], [data-testid="stTooltipHoverTarget"],
-[data-testid="stTooltipIcon"] *, [data-testid="stTooltipHoverTarget"] *,
 [data-testid="stTooltipIcon"] [data-testid="stIconMaterial"] {
     color: var(--accent) !important;
-    fill: var(--accent) !important;
     opacity: 1 !important;
+}
+[data-testid="stTooltipIcon"] svg {
+    color: var(--accent) !important;
+    stroke: var(--accent) !important;
+    fill: none !important;
 }
 div[data-baseweb="tooltip"], div[data-baseweb="tooltip"] *,
 [data-testid="stTooltipContent"], [data-testid="stTooltipContent"] *,
@@ -587,21 +625,26 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
         z-index: 1000000 !important;
         transition: transform .2s ease, margin-left .2s ease, visibility .2s ease !important;
     }
-    [data-testid="stSidebar"][aria-expanded="false"] {
+    [data-testid="stSidebar"][aria-expanded="false"],
+    [data-testid="stSidebar"][data-collapsed="true"] {
         transform: translateX(-105%) !important;
         margin-left: -350px !important;
         visibility: hidden !important;
         pointer-events: none !important;
     }
-    [data-testid="stSidebar"][aria-expanded="true"] {
+    [data-testid="stSidebar"][aria-expanded="true"],
+    [data-testid="stSidebar"][data-collapsed="false"] {
         transform: none !important;
         margin-left: 0 !important;
         visibility: visible !important;
         pointer-events: auto !important;
     }
-    [data-testid="stMain"] { transition: margin-left .18s ease; }
-    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"] {
-        margin-left: 316px;
+    [data-testid="stMain"] { transition: margin-left .18s ease, width .18s ease; }
+    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stMain"],
+    [data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stMain"] {
+        margin-left: 316px !important;
+        width: calc(100vw - 316px) !important;
+        max-width: calc(100vw - 316px) !important;
     }
 }
 [data-testid="stSidebar"] { background: transparent; border-right: none; }
@@ -614,7 +657,10 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     overflow-y: auto;
     box-shadow: 0 12px 32px var(--shadow);
 }
-[data-testid="stSidebarHeader"] { padding: 8px 12px 0; height: auto; pointer-events: auto !important; }
+[data-testid="stSidebarHeader"] {
+    position: sticky; top: 0; z-index: 10; background: var(--surface);
+    padding: 8px 12px 4px; height: auto; pointer-events: auto !important;
+}
 [data-testid="stSidebarUserContent"] { padding-top: .35rem; }
 
 /* ---------- Module navigator: visible tabs & cards ---------- */
@@ -624,10 +670,10 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
     display: flex; flex-direction: column; gap: 5px; align-items: stretch; width: 100%;
 }
 [class*="st-key-modgroup_"] [data-testid="stRadioOption"], [class*="st-key-mod_picker"] [data-testid="stRadioOption"] {
-    width: 100%; position: relative; border: 1px solid var(--border); border-radius: 10px;
-    padding: 8px 12px 8px 13px; background: var(--surface-alt); cursor: pointer;
-    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease,
-                opacity .16s ease, background-color .16s ease;
+    width: 100%; position: relative; border: 1px solid var(--border); border-radius: 9px;
+    padding: 6.5px 11px 6.5px 12px; background: var(--surface-alt); cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease,
+                opacity .15s ease, background-color .15s ease;
 }
 /* hide the radio dot */
 [class*="st-key-modgroup_"] [data-testid="stRadioOption"] > div > div > div:first-child,
@@ -672,6 +718,46 @@ div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover {
 .defn-val { font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-section); font-weight: 600; color: var(--accent) !important; }
 .defn-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; margin-bottom: 10px; font-size: var(--fs-card); color: var(--text) !important; line-height: 1.5; }
 .defn-k { font-weight: 700; color: var(--muted) !important; }
+
+/* ---------- Smart navigation & accessibility ---------- */
+.smart-nav-wrap {
+    margin-top: 26px; padding: 16px 18px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 2px 8px var(--shadow);
+}
+.smart-nav-head {
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 10px;
+}
+.smart-nav-title {
+    font-size: var(--fs-label); font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent) !important;
+}
+.smart-nav-hint {
+    font-size: var(--fs-small); color: var(--muted) !important;
+}
+.smart-reason {
+    font-size: var(--fs-label); color: var(--muted) !important; margin-top: 4px; line-height: 1.4;
+}
+.crumb-basis {
+    background: var(--neu-bg); color: var(--accent) !important; border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 9px; font-family: 'IBM Plex Mono', monospace;
+    font-size: var(--fs-label); font-weight: 600;
+}
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+[role="tab"]:focus-visible, [data-testid="stRadioOption"]:focus-within,
+summary:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
 
 /* ---------- Mobile ---------- */
 @media (max-width: 780px) {
@@ -784,7 +870,12 @@ def style_fig(fig, height=None, legend="top", margin=None):
 # ==============================================================================
 
 def _isnum(x) -> bool:
-    return isinstance(x, (int, float, np.integer, np.floating)) and not isinstance(x, bool) and not pd.isna(x)
+    return isinstance(x, (int, float, np.integer, np.floating)) and not isinstance(x, bool) and not pd.isna(x) and np.isfinite(x)
+
+
+def _num(x, default=0.0) -> float:
+    """Safe finite float conversion; avoids the Python trap where `np.nan or 0` returns `np.nan`."""
+    return float(x) if _isnum(x) else default
 
 
 class Fmt:
@@ -1358,8 +1449,12 @@ def estimate_beta(ticker: str, benchmark: str = "SPY"):
         b = _fetch_history(benchmark, "2y", "1d")
         if a.empty or b.empty or "Close" not in a or "Close" not in b:
             return None
-        ra = a["Close"].pct_change().dropna()
-        rb = b["Close"].pct_change().dropna()
+        ra = a["Close"].dropna()
+        rb = b["Close"].dropna()
+        ra.index = pd.to_datetime(ra.index).tz_localize(None).normalize()
+        rb.index = pd.to_datetime(rb.index).tz_localize(None).normalize()
+        ra = ra[~ra.index.duplicated(keep="last")].pct_change(fill_method=None).dropna()
+        rb = rb[~rb.index.duplicated(keep="last")].pct_change(fill_method=None).dropna()
         joined = pd.concat([ra, rb], axis=1, join="inner").dropna()
         if len(joined) < 60:
             return None
@@ -2815,20 +2910,24 @@ class Company:
         if hist.empty or "Close" not in hist:
             return {}
         close = hist["Close"].dropna()
-        ret = close.pct_change().dropna()
-        if ret.empty:
+        ret = close.pct_change(fill_method=None).dropna()
+        if len(ret) < 2:
             return {}
-        vol = float(ret.std() * np.sqrt(252))
+        sd = float(ret.std())
+        mu = float(ret.mean())
+        vol = float(sd * np.sqrt(252)) if _isnum(sd) else None
         cum = (1 + ret).cumprod()
         dd = (cum / cum.expanding(min_periods=1).max()) - 1
-        downside = ret[ret < 0].std() * np.sqrt(252)
+        neg_ret = ret[ret < 0]
+        downside = float(neg_ret.std() * np.sqrt(252)) if len(neg_ret) >= 2 else None
+        var_95 = float(norm.ppf(0.05, mu, sd)) if (_isnum(sd) and sd > 0) else None
         return {
             "vol": vol,
-            "var_95": float(norm.ppf(0.05, ret.mean(), ret.std())),
+            "var_95": var_95,
             "cvar_95": float(ret[ret <= ret.quantile(0.05)].mean()) if len(ret) > 20 else None,
-            "max_dd": float(dd.min()),
-            "sortino": float((ret.mean() * 252) / downside) if downside and downside > 0 else None,
-            "ann_return": float((1 + ret.mean()) ** 252 - 1),
+            "max_dd": float(dd.min()) if not dd.empty else None,
+            "sortino": float((mu * 252) / downside) if (_isnum(downside) and downside > 0) else None,
+            "ann_return": float((1 + mu) ** 252 - 1) if _isnum(mu) and mu > -1 else None,
         }
 
 
@@ -3082,9 +3181,9 @@ def detect_shocks(close: pd.Series, z_threshold: float = 2.5, max_events: int = 
     close = close.dropna()
     if len(close) < 40:
         return pd.DataFrame()
-    ret = close.pct_change().dropna()
+    ret = close.pct_change(fill_method=None).dropna()
     sd = ret.std()
-    if not sd:
+    if not _isnum(sd) or sd <= 0:
         return pd.DataFrame()
     z = (ret - ret.mean()) / sd
     hits = z[z.abs() >= z_threshold]
@@ -3371,16 +3470,21 @@ def compute_extras(co: Company) -> dict:
         ebit = inc["EBIT"] if "EBIT" in inc.columns else inc.get("Operating Income")
         int_exp = inc.get("Interest Expense")
         if ebit is not None and int_exp is not None and _isnum(int_exp.iloc[-1]) and abs(int_exp.iloc[-1]) > 0:
-            e["interest_cover"] = abs(safe_div(ebit.iloc[-1], abs(int_exp.iloc[-1])) or 0)
+            ic_val = safe_div(ebit.iloc[-1], abs(int_exp.iloc[-1]))
+            if ic_val is not None:
+                e["interest_cover"] = ic_val
         if "Gross Profit" in inc.columns and "Total Revenue" in inc.columns:
-            gm = (inc["Gross Profit"] / inc["Total Revenue"]).dropna()
+            gm = (inc["Gross Profit"] / inc["Total Revenue"].replace(0, np.nan)).dropna()
             if len(gm) >= 2:
                 e["gm_delta"] = float(gm.iloc[-1] - gm.iloc[-2])
         if "Total Revenue" in inc.columns and not bs.empty and "Accounts Receivable" in bs.columns:
-            rev_g = inc["Total Revenue"].pct_change().iloc[-1]
-            ar_g = bs["Accounts Receivable"].pct_change().iloc[-1]
-            if _isnum(rev_g) and _isnum(ar_g):
-                e["receivable_gap"] = float(ar_g - rev_g)
+            rev_s = inc["Total Revenue"].dropna()
+            ar_s = bs["Accounts Receivable"].dropna()
+            if len(rev_s) >= 2 and len(ar_s) >= 2:
+                rev_g = rev_s.pct_change(fill_method=None).iloc[-1]
+                ar_g = ar_s.pct_change(fill_method=None).iloc[-1]
+                if _isnum(rev_g) and _isnum(ar_g):
+                    e["receivable_gap"] = float(ar_g - rev_g)
 
     if not bs.empty and "Share Issued" in bs.columns and len(bs) >= 2:
         sh = bs["Share Issued"].dropna()
@@ -3587,7 +3691,8 @@ def kpi_grid(items, min_width=190, record=True):
     for it in items:
         tone = it.get("tone", "flat")
         help_ = it.get("help", "")
-        dot = f"<span class='help-dot' title=\"{help_}\">?</span>" if help_ else ""
+        help_esc = _html.escape(str(help_), quote=True) if help_ else ""
+        dot = f"<span class='help-dot' title=\"{help_esc}\" aria-label=\"{help_esc}\">?</span>" if help_esc else ""
         delta = ""
         if it.get("delta") is not None and _isnum(it["delta"]):
             cls = "pos" if it["delta"] >= 0 else "neg"
@@ -3657,7 +3762,8 @@ def table(df, title, what=None, formats=None, height=None, record=True, highligh
     st.markdown(f"<div class='figcap-line' style='margin-bottom:5px'>"
                 f"<span class='figcap-num'>Table {num}</span>"
                 f"<span class='figcap-title'>{title}.</span> {what or ''}</div>", unsafe_allow_html=True)
-    styled = df.style.format(formats, na_rep=Fmt.NA) if formats else df.style.format(na_rep=Fmt.NA)
+    df_clean = df.where(pd.notna(df), np.nan)
+    styled = df_clean.style.format(formats, na_rep=Fmt.NA) if formats else df_clean.style.format(na_rep=Fmt.NA)
     if highlight is not None:
         styled = styled.apply(
             lambda s: [f"background-color:{T['neu_bg']};color:{T['neu_text']};font-weight:600"
@@ -3758,7 +3864,7 @@ def compute_monthly_returns(px_series: pd.Series) -> pd.DataFrame:
     s = px_series.dropna().sort_index()
     if hasattr(s.index, "tz_localize") and getattr(s.index, "tz", None) is not None:
         s.index = s.index.tz_localize(None)
-    daily_ret = s.pct_change().dropna()
+    daily_ret = s.pct_change(fill_method=None).dropna()
     if daily_ret.empty:
         return pd.DataFrame()
 
@@ -3888,6 +3994,44 @@ def render_returns_heatmap(co: Company, fx: float = 1.0, sym: str = "$", key_pre
            "helps contextualize volatility and investor expectations.",
            data=grid, record=record)
 
+    # Tailored seasonality & return-asymmetry interpretation
+    month_means = grid[month_cols].mean(skipna=True).dropna()
+    best_cal_m = month_means.idxmax() if not month_means.empty else None
+    worst_cal_m = month_means.idxmin() if not month_means.empty else None
+    yr_vals = grid["Year"].dropna()
+    pos_yrs = int((yr_vals > 0).sum())
+    tot_yrs = len(yr_vals)
+    avg_yr = float(yr_vals.mean()) if tot_yrs > 0 else None
+    up_vals = valid_months[valid_months > 0]
+    dn_vals = valid_months[valid_months < 0]
+    avg_up = float(up_vals.mean()) if len(up_vals) > 0 else None
+    avg_dn = float(dn_vals.mean()) if len(dn_vals) > 0 else None
+    asymmetry_line = ""
+    if _isnum(avg_up) and _isnum(avg_dn):
+        ratio_ud = abs(avg_up / avg_dn) if avg_dn != 0 else None
+        asymmetry_line = (
+            f"Average up month is **{avg_up:+.1f}%** versus average down month **{avg_dn:+.1f}%**"
+            + (f" (gain/loss ratio **{ratio_ud:,.2f}x** — {'positive skew: winning months outsize losing ones' if ratio_ud >= 1.15 else 'negative skew: sharp drawdowns outsize typical rallies' if ratio_ud < 0.85 else 'roughly symmetric upside and downside'})."
+               if _isnum(ratio_ud) else ".")
+        )
+    season_line = ""
+    if best_cal_m and worst_cal_m:
+        best_wr = float((grid[best_cal_m].dropna() > 0).mean() * 100)
+        worst_wr = float((grid[worst_cal_m].dropna() > 0).mean() * 100)
+        season_line = (
+            f"Historically, **{best_cal_m}** has been the strongest calendar month "
+            f"(avg **{month_means[best_cal_m]:+.1f}%**, positive {best_wr:.0f}% of the time), while "
+            f"**{worst_cal_m}** has been the weakest (avg **{month_means[worst_cal_m]:+.1f}%**, positive {worst_wr:.0f}% of the time)."
+        )
+    note(f"""
+Over the **{lookback.lower()}** window, **{co.ticker}** finished positive in **{pos_months} of {total_months} months ({pct_pos:.0f}%)**
+and **{pos_yrs} of {tot_yrs} calendar years**{f' (average annual return {avg_yr:+.1f}%)' if _isnum(avg_yr) else ''}.
+- **Seasonality pattern.** {season_line or 'Not enough overlapping years to establish a calendar-month pattern.'}
+- **Return asymmetry.** {asymmetry_line or 'Insufficient up/down month contrast in this window.'}
+- **Current year context.** {cur_year} stands at **{cur_y_ret:+.1f}%**{f', running {cur_y_ret - avg_yr:+.1f} percentage points {"ahead of" if cur_y_ret >= avg_yr else "behind"} the {lookback.lower()} annual average' if _isnum(avg_yr) else ''}.
+""", tone="pos" if pct_pos >= 55 and avg_m > 0 else "warn" if pct_pos >= 45 else "neg",
+         title="Return heat map interpretation", record=record)
+
 
 # ==============================================================================
 # 6. NAVIGATION & SHELL
@@ -3937,6 +4081,188 @@ INTERVALS = {"5d": "15m", "1mo": "60m", "3mo": "1d", "6mo": "1d", "ytd": "1d",
 st.session_state[_LOAD_ERRORS_KEY] = []
 st.session_state[SOURCE_LOG_KEY] = {}
 
+# Resolve deferred URL query parameters once registries are built
+if st.session_state.get("_qp_ticker_raw"):
+    _qt = st.session_state.pop("_qp_ticker_raw")
+    _qsuf = f".{_qt.split('.')[-1]}" if "." in _qt else ""
+    st.session_state["market_select"] = SUFFIX_TO_MARKET.get(_qsuf, "Other / enter full symbol")
+    st.session_state["ticker_symbol_input"] = _qt
+if st.session_state.get("_qp_view_raw"):
+    _qv = st.session_state.pop("_qp_view_raw")
+    if _qv in LABEL_BY_NAME:
+        st.session_state["module"] = LABEL_BY_NAME[_qv]
+    elif _qv in NAME_BY_LABEL:
+        st.session_state["module"] = _qv
+
+
+def switch_module(target_name: str):
+    """Navigates smoothly to any module by short name or numbered label."""
+    lbl = LABEL_BY_NAME.get(target_name, target_name)
+    if lbl in NAME_BY_LABEL:
+        st.session_state["module"] = lbl
+        st.session_state["mod_picker"] = lbl
+        st.session_state["mod_filter"] = ""
+        st.session_state["_export"] = False
+
+
+def switch_ticker(sym_full: str):
+    """Switches active ticker cleanly, syncing market suffix and recent history."""
+    sym_full = (sym_full or "").strip().upper()
+    if not sym_full:
+        return
+    suf = f".{sym_full.split('.')[-1]}" if "." in sym_full else ""
+    st.session_state["market_select"] = SUFFIX_TO_MARKET.get(suf, "Other / enter full symbol")
+    st.session_state["ticker_symbol_input"] = sym_full
+    st.session_state["_export"] = False
+    rec = [t for t in st.session_state.get("recent_tickers", []) if t != sym_full]
+    st.session_state["recent_tickers"] = [sym_full] + rec[:7]
+
+
+def render_smart_nav(current_view: str, co: Company, extras: dict):
+    """Contextual workflow strip: suggests the highest-signal next modules for
+    this specific company based on its live numbers, plus linear Prev/Next."""
+    i = co.info
+    recs = []
+
+    def _add(mod_name: str, reason: str):
+        if mod_name != current_view and mod_name in LABEL_BY_NAME and all(r[0] != mod_name for r in recs):
+            recs.append((mod_name, reason))
+
+    nd_ebitda = safe_div(co.net_debt, i.get("ebitda"))
+    ic = extras.get("interest_cover")
+    cc = extras.get("cash_conversion")
+    dil = extras.get("dilution")
+    pe = i.get("trailingPE")
+
+    if (_isnum(nd_ebitda) and nd_ebitda > 2.5) or (_isnum(ic) and ic < 3.0):
+        _add("Solvency & Debt", f"Leverage check ({Fmt.ratio(nd_ebitda)} Net Debt/EBITDA)")
+    if _isnum(cc) and cc < 0.85:
+        _add("Cash Flow Quality", f"Profit-to-cash conversion is {Fmt.ratio(cc)}")
+    if _isnum(dil) and dil > 0.015:
+        _add("Dilution & Owner Earnings", f"Share count grew {Fmt.as_pct(dil, signed=True)} YoY")
+    if _isnum(pe) and pe > 28:
+        _add("Intrinsic Valuation", f"High multiple ({Fmt.ratio(pe)} P/E) — test growth priced in")
+
+    # Module-specific logical next hops
+    flow_map = {
+        "Executive Dashboard": [
+            ("Intrinsic Valuation", "Estimate fair value & reverse DCF"),
+            ("Financial Statements", "Inspect 5-year filings & common-size margins"),
+            ("Peer Comparables", "See how multiples compare to live peers"),
+        ],
+        "Key Statistics": [
+            ("Financial Statements", "Verify TTM & annual statements line by line"),
+            ("Estimates & Revisions", "Check forward consensus & EPS revisions"),
+            ("Executive Dashboard", "Return to composite scorecard & summary"),
+        ],
+        "Estimates & Revisions": [
+            ("Intrinsic Valuation", "Plug consensus growth into the DCF"),
+            ("Technical Analysis", "Check price trend around recent prints"),
+            ("Price & Capital Dynamics", "Match price shocks to recent headlines"),
+        ],
+        "Technical Analysis": [
+            ("Risk & Scenarios", "Stress-test volatility, drawdown & seasonality"),
+            ("Price & Capital Dynamics", "Inspect statistical shock days & news"),
+            ("Intrinsic Valuation", "Anchor timing against fundamental value"),
+        ],
+        "Financial Statements": [
+            ("Cash Flow Quality", "Test whether accounting profit turns into cash"),
+            ("Capital Allocation", "Compare ROIC against WACC & cash deployment"),
+            ("Solvency & Debt", "Stress-test debt maturities & interest cover"),
+        ],
+        "Cash Flow Quality": [
+            ("Capital Allocation", "See where operating cash flow was deployed"),
+            ("Dilution & Owner Earnings", "Adjust FCF for stock-based compensation"),
+            ("Intrinsic Valuation", "Discount normalised free cash flow"),
+        ],
+        "Capital Allocation": [
+            ("Intrinsic Valuation", "Connect ROIC spread to intrinsic fair value"),
+            ("Dilution & Owner Earnings", "Check if buybacks actually shrink share count"),
+            ("Solvency & Debt", "Review how capital is financed"),
+        ],
+        "Solvency & Debt": [
+            ("Cash Flow Quality", "Verify free cash flow covers obligations"),
+            ("Risk & Scenarios", "Measure drawdown & downside tail risk"),
+            ("Intrinsic Valuation", "Check how net debt impacts equity value"),
+        ],
+        "Dilution & Owner Earnings": [
+            ("Intrinsic Valuation", "Value the business on owner earnings"),
+            ("Capital Allocation", "Compare buybacks against reinvestment"),
+            ("Cash Flow Quality", "Inspect underlying FCF conversion"),
+        ],
+        "Intrinsic Valuation": [
+            ("Peer Comparables", "Cross-check DCF against market peer multiples"),
+            ("Risk & Scenarios", "Size the position using drawdown & Monte Carlo"),
+            ("Estimates & Revisions", "Compare implied growth against analyst consensus"),
+        ],
+        "Peer Comparables": [
+            ("Compare Companies", "Put selected peers side by side on price & profile"),
+            ("Intrinsic Valuation", "Cross-check relative value against DCF"),
+            ("Market Leaders", "Zoom out to sector & market leaders"),
+        ],
+        "Compare Companies": [
+            ("Peer Comparables", "Run football-field valuation on the peer group"),
+            ("Investment Simulator", "Backtest holding returns vs benchmark"),
+            ("Portfolio", "Test adding these holdings to a portfolio"),
+        ],
+        "Risk & Scenarios": [
+            ("Investment Simulator", "See historical lump-sum & DCA paths"),
+            ("Technical Analysis", "Inspect trend & forward projection cone"),
+            ("Solvency & Debt", "Check balance-sheet resilience in a downturn"),
+        ],
+        "Investment Simulator": [
+            ("Portfolio", "Combine multiple holdings & check allocation drift"),
+            ("Risk & Scenarios", "Inspect drawdowns & monthly return seasonality"),
+            ("Executive Dashboard", "Review current fundamentals before sizing"),
+        ],
+        "Portfolio": [
+            ("Compare Companies", "Compare your holdings side by side"),
+            ("Risk & Scenarios", "Stress-test single-stock volatility & seasonality"),
+            ("Executive Dashboard", "Deep-dive on the active holding"),
+        ],
+        "Price & Capital Dynamics": [
+            ("Technical Analysis", "Inspect trend overlays, RSI & forecast cone"),
+            ("Risk & Scenarios", "Check return heat map & tail risk"),
+            ("Estimates & Revisions", "See if headlines shifted analyst estimates"),
+        ],
+        "Market Leaders": [
+            ("Compare Companies", "Compare the top leaders head-to-head"),
+            ("Peer Comparables", "Benchmark active company against peers"),
+            ("Executive Dashboard", "Return to active company dashboard"),
+        ],
+    }
+    for m, r in flow_map.get(current_view, []):
+        _add(m, r)
+    recs = recs[:3]
+
+    idx_now = [n for n, _ in MODULES].index(current_view) if current_view in LABEL_BY_NAME else 1
+    prev_name = MODULES[idx_now - 1][0] if idx_now > 1 else None
+    next_name = MODULES[idx_now + 1][0] if idx_now + 1 < len(MODULES) else None
+
+    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(
+            f"<div class='smart-nav-head'>"
+            f"<span class='smart-nav-title'>Continue analysis · Smart navigation</span>"
+            f"<span class='smart-nav-hint'>Recommended next modules based on {co.ticker}'s live numbers</span>"
+            f"</div>", unsafe_allow_html=True)
+        cols = st.columns([1.2, 1.2, 1.2, 0.9])
+        for col_box, (m_name, reason) in zip(cols[:len(recs)], recs):
+            with col_box:
+                st.button(f"{LABEL_BY_NAME[m_name]} →", key=uid("snav"),
+                          on_click=switch_module, args=(m_name,), **FILL_BTN)
+                st.markdown(f"<div class='smart-reason'>{reason}</div>", unsafe_allow_html=True)
+        with cols[-1]:
+            p_col, n_col = st.columns(2)
+            with p_col:
+                if prev_name:
+                    st.button("← Prev", key=uid("snav_prev"), help=f"Go to {LABEL_BY_NAME[prev_name]}",
+                              on_click=switch_module, args=(prev_name,), **FILL_BTN)
+            with n_col:
+                if next_name:
+                    st.button("Next →", key=uid("snav_next"), help=f"Go to {LABEL_BY_NAME[next_name]}",
+                              on_click=switch_module, args=(next_name,), **FILL_BTN)
+
 
 def monogram(name: str) -> str:
     """Initials tile used in place of a remote logo lookup. Third-party logo
@@ -3965,10 +4291,7 @@ with st.sidebar:
                 picked = st.selectbox("Match", list(opts.keys()), key="name_search_pick",
                                       label_visibility="collapsed")
                 if st.button("Use this ticker", type="primary", **FILL_BTN):
-                    sym = opts[picked]
-                    suffix = f".{sym.split('.')[-1]}" if "." in sym else ""
-                    st.session_state["market_select"] = SUFFIX_TO_MARKET.get(suffix, "Other / enter full symbol")
-                    st.session_state["ticker_symbol_input"] = sym
+                    switch_ticker(opts[picked])
                     st.rerun()
             else:
                 st.caption("Nothing came back for that. Yahoo's search routes are rate-limited from shared "
@@ -3984,18 +4307,42 @@ with st.sidebar:
                            help="A symbol that already carries an exchange suffix (7203.T) overrides the market above.").upper().strip()
     ticker = symbol if (suffix == "MANUAL" or "." in symbol) else f"{symbol}{suffix}"
 
+    # Track recent tickers and expose 1-click quick switcher pills
+    if ticker:
+        _rec = [t for t in st.session_state.get("recent_tickers", []) if t != ticker]
+        st.session_state["recent_tickers"] = [ticker] + _rec[:7]
+    _quick_picks = [t for t in st.session_state.get("recent_tickers", []) if t != ticker][:4]
+    if _quick_picks:
+        st.caption("Quick switch")
+        for _row_start in range(0, len(_quick_picks), 2):
+            _row_items = _quick_picks[_row_start:_row_start + 2]
+            _qcols = st.columns(2)
+            for _qc, _qt in zip(_qcols, _row_items):
+                with _qc:
+                    st.button(_qt, key=f"qpick_{_qt}", on_click=switch_ticker, args=(_qt,), **FILL_BTN)
+
     st.markdown("<div class='side-group'>View</div>", unsafe_allow_html=True)
+    mod_q = st.text_input("Filter views", key="mod_filter", placeholder="Filter views (DCF, debt, heat)…",
+                          label_visibility="collapsed").strip().lower()
+    if mod_q:
+        filtered_labels = [
+            lbl for lbl in MODULE_LABELS
+            if mod_q in lbl.lower() or mod_q in MODULE_HELP.get(lbl, "").lower()
+        ] or MODULE_LABELS
+    else:
+        filtered_labels = MODULE_LABELS
 
     cur_module = st.session_state.get("module", MODULE_LABELS[1])
-    if cur_module in MODULE_LABELS:
-        default_radio_idx = MODULE_LABELS.index(cur_module)
+    if cur_module in filtered_labels:
+        default_radio_idx = filtered_labels.index(cur_module)
     else:
-        default_radio_idx = 1
+        default_radio_idx = 0
 
     def _on_module_change():
         st.session_state.module = st.session_state["mod_picker"]
+        st.session_state["_export"] = False
 
-    module = st.radio("Module", MODULE_LABELS, index=default_radio_idx,
+    module = st.radio("Module", filtered_labels, index=default_radio_idx,
                       key="mod_picker", on_change=_on_module_change,
                       label_visibility="collapsed")
     st.session_state.module = module
@@ -4015,15 +4362,42 @@ with st.sidebar:
     st.selectbox("Theme", list(THEMES.keys()), key="theme")
     st.checkbox("Expand figure explanations by default", key="explain_open")
 
-    st.markdown("<div class='side-group'>Data</div>", unsafe_allow_html=True)
+    st.markdown("<div class='side-group'>Data & keep-alive</div>", unsafe_allow_html=True)
     if st.button("Refresh market data", **FILL_BTN,
                  help="Clears every cached response and refetches on the next render."):
         st.cache_data.clear()
         st.rerun()
+    auto_ref = st.selectbox("Browser auto-refresh", ["Off", "15 min", "1 hour", "6 hours"],
+                            key="auto_refresh",
+                            help="Optionally reloads an open browser tab on a timer. Streamlit Cloud is also "
+                                 "kept awake automatically every 6 hours via GitHub Actions.")
     st.caption(f"Source: {DATA_SOURCE} · rendered {datetime.now():%d %b %Y %H:%M}")
 
     st.markdown(f"<div class='foot' style='margin-top:18px'>Built by Minh Phu Dinh<br>"
                 f"Educational research tool — not investment advice.</div>", unsafe_allow_html=True)
+
+# Sync active state to URL query parameters for shareable links & clean reloads
+try:
+    st.query_params["ticker"] = ticker
+    st.query_params["view"] = view
+    if currency_mode != "Native":
+        st.query_params["currency"] = currency_mode
+    elif "currency" in st.query_params:
+        del st.query_params["currency"]
+    if st.session_state.theme != "Light":
+        st.query_params["theme"] = st.session_state.theme
+    elif "theme" in st.query_params:
+        del st.query_params["theme"]
+except Exception:
+    pass
+
+# Optional non-intrusive client auto-refresh timer when user enables it
+_AUTO_REF_MS = {"15 min": 900_000, "1 hour": 3_600_000, "6 hours": 21_600_000}.get(auto_ref)
+if _AUTO_REF_MS:
+    components.html(
+        f"<script>setTimeout(function(){{ window.parent.location.reload(); }}, {_AUTO_REF_MS});</script>",
+        height=0,
+    )
 
 
 # --- Guide page (no data loading, so it renders instantly) --------------------
@@ -4033,11 +4407,15 @@ if view == "Guide & Method":
                 f"<div class='hdr-meta'>What each module answers, how the numbers are built, and what the "
                 f"figures assume. Nothing on this page loads market data.</div>", unsafe_allow_html=True)
 
-    section("Modules", "Pick the module that matches the question you are actually asking.")
+    section("Modules", "Pick the module that matches the question you are actually asking — click Open to jump straight in.")
     for idx, (name, purpose) in enumerate(MODULES[1:], start=1):
-        st.markdown(f"<div class='card'><div class='card-title'>"
-                    f"<span class='section-num'>{idx:02d}</span> &nbsp;{name}</div>"
-                    f"<div class='card-body'>{purpose}</div></div>", unsafe_allow_html=True)
+        gc1, gc2 = st.columns([5.2, 1], vertical_alignment="center")
+        with gc1:
+            st.markdown(f"<div class='card'><div class='card-title'>"
+                        f"<span class='section-num'>{idx:02d}</span> &nbsp;{name}</div>"
+                        f"<div class='card-body'>{purpose}</div></div>", unsafe_allow_html=True)
+        with gc2:
+            st.button("Open →", key=f"guide_open_{idx}", on_click=switch_module, args=(name,), **FILL_BTN)
 
     section("How the report is structured",
             "Every module follows the same shape, so figures can be quoted and compared reliably.")
@@ -4140,6 +4518,8 @@ st.markdown(
     f"<div class='terminal-tags'>"
     f"<span class='crumb-chip'>{co.ticker}</span>"
     f"<span class='crumb-chip'>{target_currency}</span>"
+    f"<span class='crumb-basis'>{basis}</span>"
+    f"<span class='crumb-chip'>{period_label}</span>"
     f"<span class='crumb-chip'>{st.session_state.theme}</span>"
     f"<span class='crumb-live'>LIVE DATA</span>"
     f"</div>"
@@ -4443,10 +4823,11 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                        data=inc_d[[c for c in ("Total Revenue", "Net Income") if c in inc_d.columns]])
             with g2:
                 margins = pd.DataFrame(index=inc_d.index)
+                rev_denom = inc_d["Total Revenue"].replace(0, np.nan)
                 for label, num in (("Gross", "Gross Profit"), ("Operating", "Operating Income"),
                                    ("Net", "Net Income")):
                     if num in inc_d.columns:
-                        margins[label] = inc_d[num] / inc_d["Total Revenue"] * 100
+                        margins[label] = inc_d[num] / rev_denom * 100
                 if margins.empty:
                     empty_state("Margin detail is not reported for this symbol.")
                 else:
@@ -4500,7 +4881,7 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
 
             if gm_rows:
                 gm_df = pd.DataFrame(gm_rows).sort_values("_date").set_index("Period")
-                gm_df["Revenue Growth %"] = gm_df["Revenue"].pct_change() * 100
+                gm_df["Revenue Growth %"] = gm_df["Revenue"].pct_change(fill_method=None) * 100
                 gm_df["Gross Margin %"] = (gm_df["Gross Profit"] / gm_df["Revenue"].replace(0, np.nan)) * 100
                 gm_df["Operating Margin %"] = (gm_df["Operating Income"] / gm_df["Revenue"].replace(0, np.nan)) * 100
                 gm_df["Net Margin %"] = (gm_df["Net Income"] / gm_df["Revenue"].replace(0, np.nan)) * 100
@@ -4529,6 +4910,25 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                       f"Key financial figures and profitability margins by fiscal year in {target_currency}, highlighting expansion and contraction across all reported years.",
                       formats=gm_formats, color_cols=pct_cols)
 
+                # Tailored Growth & Margin Trajectory interpretation
+                _op_s = gm_df["Operating Margin %"].dropna()
+                _gm_s = gm_df["Gross Margin %"].dropna()
+                _nm_s = gm_df["Net Margin %"].dropna()
+                _fm_s = gm_df["FCF Margin %"].dropna()
+                _op_delta = float(_op_s.iloc[-1] - _op_s.iloc[0]) if len(_op_s) >= 2 else None
+                _gm_delta = float(_gm_s.iloc[-1] - _gm_s.iloc[0]) if len(_gm_s) >= 2 else None
+                _last_rev_g = float(gm_df["Revenue Growth %"].dropna().iloc[-1]) if not gm_df["Revenue Growth %"].dropna().empty else None
+                _last_nm = float(_nm_s.iloc[-1]) if not _nm_s.empty else None
+                _last_fm = float(_fm_s.iloc[-1]) if not _fm_s.empty else None
+                note(f"""
+Across the {len(disp_df)} reported fiscal years, revenue compounded at **{Fmt.as_pct(extras.get('rev_cagr'))}** annually
+{f'(most recent year **{Fmt.pct(_last_rev_g, signed=True)}**)' if _isnum(_last_rev_g) else ''}.
+- **Margin direction.** {f'Operating margin moved **{_op_delta:+,.1f} percentage points** across the window (to **{_op_s.iloc[-1]:,.1f}%**), pointing to ' + ('positive operating leverage as fixed costs spread over a larger base.' if _op_delta > 1.0 else 'margin compression — expenses grew faster than sales.' if _op_delta < -1.0 else 'a stable cost structure.') if _isnum(_op_delta) else 'Not enough multi-year operating margin data to measure a trend.'}
+{f'Gross margin shifted **{_gm_delta:+,.1f}pp** over the same stretch.' if _isnum(_gm_delta) else ''}
+- **Cash vs accounting profit.** {f'Latest FCF margin is **{_last_fm:,.1f}%** against a net margin of **{_last_nm:,.1f}%** — ' + ('free cash flow exceeds accounting profit, confirming strong cash backing.' if _last_fm >= _last_nm else 'free cash flow trails net income, worth verifying in **06. Cash Flow Quality**.') if _isnum(_last_fm) and _isnum(_last_nm) else 'Compare net income against operating cash flow in **06. Cash Flow Quality**.'}
+""", tone="pos" if (_op_delta or 0) > 1 and (_last_rev_g or 0) > 0 else "warn" if (_op_delta or 0) < -2 else "neu",
+                     title="Growth & margin interpretation", record=False)
+
     # -- Valuation -------------------------------------------------------------
     with tabs[1]:
         mult = {"Trailing P/E": info.get("trailingPE"), "Forward P/E": info.get("forwardPE"),
@@ -4549,7 +4949,7 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                        "Read across, not down: a high P/E next to a low EV/EBITDA usually means leverage or "
                        "non-operating items are distorting the equity multiple. PEG below 1.0x means the market "
                        "is paying less than one unit of P/E per unit of growth.",
-                       "Absolute multiples say little on their own — section 6 puts these against live peers.",
+                       "Absolute multiples say little on their own — **11. Peer Comparables** puts these against live peers.",
                        data=pd.DataFrame({"Multiple": mult}))
             else:
                 empty_state("No valuation multiples reported.", "Common for loss-making or thinly covered names.")
@@ -4584,7 +4984,8 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                            "this listing, or every route was throttled when this page loaded")
             else:
                 rec_sub = "Analyst count not reported"
-            upside = (safe_div(target, co.price) or 1) - 1 if _isnum(target) else None
+            _up_ratio = safe_div(target, co.price) if _isnum(target) else None
+            upside = (_up_ratio - 1) if _up_ratio is not None else None
             kpi_grid([
                 {"label": "Analyst consensus", "value": rec, "sub": rec_sub,
                  "tone": "flat" if rec == "Not covered" else
@@ -4631,7 +5032,7 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                        "spread as a map of opinion, not as a forecast.")
 
             note("Consensus targets are an input, not an answer: they cluster around the current price and "
-                 "move after it, not before. Section 5 builds an independent value from cash flows.",
+                 "move after it, not before. **10. Intrinsic Valuation** builds an independent value from cash flows.",
                  tone="neu", title="Reading this panel", record=False)
 
     # -- Returns (DuPont) ------------------------------------------------------
@@ -4681,6 +5082,23 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
             else:
                 empty_state("Not enough balance-sheet detail to decompose ROE.")
 
+        if roe_calc is not None:
+            _roe_driver = (
+                "**high net profitability** — pricing power and cost efficiency are doing the heavy lifting"
+                if (net_margin or 0) >= 0.15 and (leverage or 0) < 3.0 else
+                "**financial leverage** — an equity multiplier of " + Fmt.ratio(leverage) + " amplifies returns, which also raises risk in a downturn"
+                if (leverage or 0) >= 3.5 else
+                "**asset efficiency** — high asset turnover (" + Fmt.ratio(asset_turn) + ") converts capital rapidly into sales"
+                if (asset_turn or 0) >= 1.2 else
+                "**a balanced mix** of margins, asset turnover and modest leverage"
+            )
+            note(f"""
+Decomposed ROE of **{Fmt.as_pct(roe_calc)}** equals **{Fmt.as_pct(net_margin)}** net margin × **{Fmt.ratio(asset_turn)}** asset turnover × **{Fmt.ratio(leverage)}** equity multiplier.
+- **Primary engine.** This return profile is driven mainly by {_roe_driver}.
+- **Quality check.** Margin- and turnover-driven ROE tends to persist across economic cycles; leverage-driven ROE reverses quickly if borrowing costs rise or earnings dip.
+""", tone="pos" if roe_calc >= 0.15 and (leverage or 0) < 3.5 else "warn" if (leverage or 0) >= 3.5 else "neu",
+                 title="DuPont ROE interpretation", record=False)
+
         st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
         subhead("Monthly & annual return heat map", f"Calendar returns across months and fiscal years for {co.ticker}.")
         render_returns_heatmap(co, fx=fx, sym=sym, key_prefix="dash_rhm", record=False)
@@ -4719,42 +5137,84 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
             with b2:
                 latest = bs_d.iloc[-1]
                 ca, cl = latest.get("Current Assets"), latest.get("Current Liabilities")
+                wc = (float(ca) - float(cl)) if (_isnum(ca) and _isnum(cl)) else None
+                gw = latest.get("Goodwill")
+                re_val = latest.get("Retained Earnings")
+                eq_latest = latest.get("Stockholders Equity")
+                ta_latest = latest.get("Total Assets")
                 kpi_grid([
-                    {"label": "Working capital", "value": Fmt.money((ca or 0) - (cl or 0), sym),
+                    {"label": "Working capital", "value": Fmt.money(wc, sym),
                      "sub": "Current assets less current liabilities",
-                     "tone": "good" if (ca or 0) - (cl or 0) > 0 else "bad"},
+                     "tone": "flat" if wc is None else ("good" if wc > 0 else "bad")},
                     {"label": "Cash & equivalents", "value": Fmt.money(latest.get("Cash And Cash Equivalents"), sym),
                      "sub": "Immediately deployable", "tone": "flat"},
-                    {"label": "Goodwill", "value": Fmt.money(latest.get("Goodwill"), sym),
-                     "sub": "Acquisition premium carried on the balance sheet", "tone": "flat"},
-                    {"label": "Retained earnings", "value": Fmt.money(latest.get("Retained Earnings"), sym),
+                    {"label": "Goodwill", "value": Fmt.money(gw, sym),
+                     "sub": f"{Fmt.as_pct(safe_div(gw, ta_latest))} of total assets" if _isnum(gw) and _isnum(ta_latest) else "Acquisition premium carried on the balance sheet",
+                     "tone": "warn" if _isnum(safe_div(gw, eq_latest)) and safe_div(gw, eq_latest) > 0.5 else "flat"},
+                    {"label": "Retained earnings", "value": Fmt.money(re_val, sym),
                      "sub": "Cumulative profit kept in the business",
-                     "tone": "good" if (latest.get("Retained Earnings") or 0) > 0 else "warn"},
+                     "tone": "flat" if not _isnum(re_val) else ("good" if re_val > 0 else "warn")},
                 ], min_width=175, record=False)
+                gw_eq = safe_div(gw, eq_latest) if _isnum(gw) and _isnum(eq_latest) and eq_latest > 0 else None
+                eq_ratio = safe_div(eq_latest, ta_latest) if _isnum(eq_latest) and _isnum(ta_latest) and ta_latest > 0 else None
+                note(f"""
+Shareholders' equity funds **{Fmt.as_pct(eq_ratio)}** of the total asset base ({Fmt.money(ta_latest, sym)}).
+- **Short-term cushion.** Working capital is **{Fmt.money(wc, sym)}**{' — positive short-term liquidity buffer.' if _isnum(wc) and wc > 0 else ' — negative working capital, which is normal for subscription/retail cash-upfront models but warrants checking liquidity in **08. Solvency & Debt**.' if _isnum(wc) and wc < 0 else '.'}
+- **Acquisition overhang.** {f'Goodwill equals **{Fmt.as_pct(gw_eq)}** of equity — ' + ('substantial acquisition premium; future write-downs could hit book value.' if gw_eq > 0.5 else 'moderate and manageable.') if _isnum(gw_eq) else 'No material goodwill reported, meaning growth has been primarily organic.'}
+""", tone="warn" if (_isnum(gw_eq) and gw_eq > 0.6) or (_isnum(eq_ratio) and eq_ratio < 0.2) else "neu",
+                     title="Balance sheet interpretation", record=False)
 
     # -- Quality flags ---------------------------------------------------------
     with tabs[4]:
         q1, q2 = st.columns([1.15, 1])
+        q_flags = quality_flags(co, extras)
         with q1:
             subhead("Earnings-quality checklist",
                     "Eight tests on whether reported profit is backed by cash and a sound balance sheet.")
-            checklist(quality_flags(co, extras))
+            checklist(q_flags)
         with q2:
             f_tests = extras.get("f_tests") or []
             z = extras.get("z_score")
+            f_sc = extras.get("f_score")
             subhead("Distress and strength scores", "Two long-standing academic screens, shown with their inputs.")
             kpi_grid([
                 {"label": "Altman Z-score", "value": Fmt.ratio(z, suffix=""),
                  "sub": "Above 3.0 safe · 1.8–3.0 grey zone · below 1.8 distress",
                  "tone": tone_for(z, 3.0, 1.8),
                  "help": "A five-factor bankruptcy screen built for public manufacturers; less meaningful for banks and asset-light software."},
-                {"label": "Piotroski F-score", "value": f"{extras.get('f_score', '—')}/9",
+                {"label": "Piotroski F-score", "value": f"{f_sc if f_sc is not None else '—'}/9",
                  "sub": "Nine pass/fail tests on profitability, leverage and efficiency",
-                 "tone": tone_for(extras.get("f_score"), 7, 3)},
+                 "tone": tone_for(f_sc, 7, 3)},
             ], min_width=210, record=False)
             if f_tests:
                 checklist([{"label": t["label"], "state": "pass" if t["pass"] else "fail",
                             "value": t["detail"], "detail": ""} for t in f_tests], record=False)
+
+        _passes = sum(1 for r in q_flags if r["state"] == "pass")
+        _fails = sum(1 for r in q_flags if r["state"] == "fail")
+        _scored_n = sum(1 for r in q_flags if r["state"] != "na")
+        _z_read = (
+            f"Altman Z-score of **{z:,.2f}** sits cleanly in the **safe zone (>3.0)**, indicating very low financial distress risk."
+            if _isnum(z) and z >= 3.0 else
+            f"Altman Z-score of **{z:,.2f}** falls in the **grey zone (1.8–3.0)** — monitor leverage and interest cover closely."
+            if _isnum(z) and z >= 1.8 else
+            f"Altman Z-score of **{z:,.2f}** flags the **distress zone (<1.8)** — check **08. Solvency & Debt** (note: Z-score naturally reads low for banks, utilities and REITs)."
+            if _isnum(z) else "Altman Z-score could not be computed due to missing balance-sheet lines."
+        )
+        _f_read = (
+            f"Piotroski F-score of **{f_sc}/9** signals **strong operational momentum** (7–9 is top tier)."
+            if _isnum(f_sc) and f_sc >= 7 else
+            f"Piotroski F-score of **{f_sc}/9** indicates **mid-pack fundamentals** (4–6)."
+            if _isnum(f_sc) and f_sc >= 4 else
+            f"Piotroski F-score of **{f_sc}/9** indicates **deteriorating operational trends** (0–3)."
+            if _isnum(f_sc) else "Piotroski F-score requires two consecutive years of statements."
+        )
+        note(f"""
+**{co.ticker}** passed **{_passes} of {_scored_n}** evaluated earnings-quality tests{_fails and f' with **{_fails} red flag(s)**' or ' with zero hard red flags'}.
+- **Solvency screen.** {_z_read}
+- **Fundamental trend.** {_f_read}
+""", tone="pos" if _fails == 0 and (_isnum(f_sc) and f_sc >= 6) else "neg" if _fails >= 2 else "warn" if _fails == 1 else "neu",
+             title="Quality & distress synthesis", record=False)
 
     # -- Dividends ---------------------------------------------------------------
     with tabs[5]:
@@ -4826,7 +5286,7 @@ Current ratio is {Fmt.ratio(info.get('currentRatio')) if _isnum(info.get('curren
                     figure(figdv, "Total cash paid out as dividends",
                            "The cash actually leaving the business as dividends each reported year.",
                            "Rising totals with a flat per-share dividend would mean the share count grew. "
-                           "Compare against free cash flow in section 4 to see whether the payment is funded "
+                           "Compare against free cash flow in **06. Cash Flow Quality** to see whether the payment is funded "
                            "by the business or by borrowing.",
                            "This is the company-level view; the per-share view is what an individual holder receives.")
 
@@ -4945,10 +5405,14 @@ elif view == "Key Statistics":
     change_52w = info.get("52WeekChange")
     if not _isnum(change_52w) and not hist_2y.empty and "Close" in hist_2y:
         series = hist_2y["Close"].dropna()
-        year_ago = series[series.index <= series.index[-1] - pd.Timedelta(days=365)]
-        if not year_ago.empty and year_ago.iloc[-1]:
-            change_52w = float(series.iloc[-1] / year_ago.iloc[-1] - 1)
+        if not series.empty:
+            year_ago = series[series.index <= series.index[-1] - pd.Timedelta(days=365)]
+            if not year_ago.empty and _isnum(year_ago.iloc[-1]) and year_ago.iloc[-1] != 0:
+                change_52w = float(series.iloc[-1] / year_ago.iloc[-1] - 1)
     div = dividend_facts(info, co.price)
+    _analyst_cal = (load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date")
+    _next_earn = (_analyst_cal[0] if isinstance(_analyst_cal, list) and _analyst_cal else
+                  (None if isinstance(_analyst_cal, list) else _analyst_cal))
 
     def rows_html(rows):
         body = "".join(
@@ -4968,9 +5432,7 @@ elif view == "Key Statistics":
         block("Fiscal year", [
             ("Fiscal year ends", epoch_date("lastFiscalYearEnd")),
             ("Most recent quarter", epoch_date("mostRecentQuarter")),
-            ("Next earnings date", Fmt.date((load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date", [None])[0]
-                                            if isinstance((load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date"), list)
-                                            else (load_analyst(co.ticker).get("calendar") or {}).get("Earnings Date"))),
+            ("Next earnings date", Fmt.date(_next_earn)),
         ])
         block("Profitability", [
             ("Profit margin", Fmt.as_pct(info.get("profitMargins") if _isnum(info.get("profitMargins"))
@@ -4998,12 +5460,14 @@ elif view == "Key Statistics":
             ("Diluted EPS (ttm)", Fmt.price(conv(info.get("trailingEps"), fx), sym)),
             ("Quarterly earnings growth (yoy)", Fmt.as_pct(eps_growth_q, 2, signed=True)),
         ])
+        _de_raw = info.get("debtToEquity")
+        _de_fallback = safe_div(debt_mrq, last(ttm_bs, "Stockholders Equity"))
+        _de_pct = _de_raw if _isnum(_de_raw) else (_de_fallback * 100 if _de_fallback is not None else None)
         block("Balance sheet", [
             ("Total cash (mrq)", Fmt.money(cash_mrq, sym)),
             ("Total cash per share (mrq)", Fmt.price(safe_div(cash_mrq, shares_out), sym)),
             ("Total debt (mrq)", Fmt.money(debt_mrq, sym)),
-            ("Total debt / equity (mrq)", Fmt.pct(info.get("debtToEquity") if _isnum(info.get("debtToEquity"))
-                                                  else (safe_div(debt_mrq, last(ttm_bs, "Stockholders Equity")) or 0) * 100, 2)),
+            ("Total debt / equity (mrq)", Fmt.pct(_de_pct, 2)),
             ("Current ratio (mrq)", Fmt.ratio(info.get("currentRatio") if _isnum(info.get("currentRatio"))
                                               else safe_div(last(ttm_bs, "Current Assets"),
                                                             last(ttm_bs, "Current Liabilities")), 2, suffix="")),
@@ -5072,19 +5536,38 @@ elif view == "Key Statistics":
             ("EV / EBITDA", Fmt.ratio(info.get("enterpriseToEbitda"))),
         ])
 
+    _t_pe, _f_pe = info.get("trailingPE"), info.get("forwardPE")
+    _pe_msg = (
+        f"Forward P/E (**{Fmt.ratio(_f_pe)}**) sits below trailing P/E (**{Fmt.ratio(_t_pe)}**), implying analysts expect earnings expansion over the next 12 months."
+        if _isnum(_t_pe) and _isnum(_f_pe) and _t_pe > 0 and _f_pe > 0 and _f_pe < _t_pe * 0.95 else
+        f"Forward P/E (**{Fmt.ratio(_f_pe)}**) exceeds trailing P/E (**{Fmt.ratio(_t_pe)}**), indicating consensus expects near-term earnings contraction."
+        if _isnum(_t_pe) and _isnum(_f_pe) and _t_pe > 0 and _f_pe > 0 and _f_pe > _t_pe * 1.05 else
+        f"Trailing P/E (**{Fmt.ratio(_t_pe)}**) and forward P/E (**{Fmt.ratio(_f_pe)}**) are closely aligned, implying steady near-term earnings expectations."
+        if _isnum(_t_pe) and _isnum(_f_pe) and _t_pe > 0 and _f_pe > 0 else
+        "Trailing and forward P/E are not both positive/reported, so check EV/Sales or FCF yield for valuation context."
+    )
+    _ma50, _ma200 = ma(50), ma(200)
+    _trend_msg = (
+        f"The 50-day average ({Fmt.price(_ma50, sym)}) sits {'above' if _ma50 >= _ma200 else 'below'} the 200-day average ({Fmt.price(_ma200, sym)}), "
+        f"{'confirming an established uptrend' if _ma50 >= _ma200 else 'reflecting a downward medium-term trend'}."
+        if _isnum(_ma50) and _isnum(_ma200) else "Moving-average trend alignment needs at least 200 trading days of price history."
+    )
+    _sf = info.get("shortPercentOfFloat")
+    _inst = info.get("heldPercentInstitutions")
+    _own_parts = []
+    if _isnum(_inst):
+        _own_parts.append(f"Institutions hold **{Fmt.as_pct(_inst)}**")
+    if _isnum(_sf):
+        _own_parts.append(f"short interest is **{Fmt.as_pct(_sf)}** of float ({'elevated bearish positioning' if _sf > 0.10 else 'moderate' if _sf > 0.04 else 'low'})")
+    _own_msg = ("; ".join(_own_parts) + ".") if _own_parts else "Ownership and short-interest breakdowns are not published for this listing."
+
     note(f"""
-Every figure above is labelled by the basis it is measured on, because mixing them is the most common way to
-misread a statistics sheet.
-- **(ttm)** is the trailing twelve months — the last four reported quarters summed. **(mrq)** is the most
-recent quarter, a snapshot on one date. A ratio combining a ttm flow with an mrq stock, such as return on
-equity, is standard but not strictly consistent, and moves when either side is restated.
-- **Quarterly growth is year on year**, comparing this quarter with the same quarter a year earlier. For any
-seasonal business that is the only comparison that means anything; quarter-on-quarter mostly measures the
-season.
-- Where the provider did not carry a field, it was recomputed from the reported statements under its standard
-definition. Where no definition could produce it — short interest, institutional holdings, the S&P comparison —
-it is left as a dash rather than filled with something adjacent.
-""", tone="neu")
+**What {co.ticker}'s statistics sheet signals right now:**
+- **Earnings trajectory.** {_pe_msg}
+- **Liquidity & debt.** Cash of **{Fmt.money(cash_mrq, sym)}** sits against total debt of **{Fmt.money(debt_mrq, sym)}**{' — a net cash cushion.' if _isnum(cash_mrq) and _isnum(debt_mrq) and cash_mrq > debt_mrq else ' — net debt financed.' if _isnum(cash_mrq) and _isnum(debt_mrq) else '.'}
+- **Trading & positioning.** {_trend_msg} {_own_msg}
+- **Reading the basis labels.** **(ttm)** sums the last four reported quarters (flows); **(mrq)** is the latest quarter-end snapshot (balance sheet). Quarterly growth is year-on-year so seasonality does not distort it.
+""", tone="neu", title="How to read these statistics")
 
 
 # ==============================================================================
@@ -5131,11 +5614,12 @@ elif view == "Estimates & Revisions":
                                       marker=dict(size=15, color=T["surface"], symbol="circle",
                                                   line=dict(color=T["faint"], width=2.5))))
             beat = h[act_col] >= h[est_col]
+            _diffs = h[act_col] - h[est_col]
             figh.add_trace(go.Scatter(x=h.index, y=h[act_col], mode="markers+text", name="Actual",
                                       marker=dict(size=15,
                                                   color=[T["success"] if b else T["danger"] for b in beat]),
-                                      text=[f"{'Beat' if b else 'Missed'}<br>{d:+,.2f}"
-                                            for b, d in zip(beat, h[act_col] - h[est_col])],
+                                      text=[f"{'Beat' if b else 'Missed'}<br>{d:+,.2f}" if _isnum(d) else ""
+                                            for b, d in zip(beat, _diffs)],
                                       textposition="bottom center", textfont=dict(size=11)))
             figh.update_yaxes(title_text="Earnings per share")
             style_fig(figh, height=380)
@@ -5165,7 +5649,7 @@ elif view == "Estimates & Revisions":
         if "Net Income" in recent.columns:
             figq.add_trace(go.Bar(x=x, y=recent["Net Income"], name="Earnings",
                                   marker_color=T["warning"], opacity=.95), secondary_y=False)
-            margin = recent["Net Income"] / recent["Total Revenue"] * 100
+            margin = recent["Net Income"] / recent["Total Revenue"].replace(0, np.nan) * 100
             figq.add_trace(go.Scatter(x=x, y=margin, name="Profit margin", mode="lines+markers",
                                       line=dict(color=T["success"], width=2.5)), secondary_y=True)
             figq.update_yaxes(title_text="Profit margin", ticksuffix="%", secondary_y=True, showgrid=False)
@@ -5254,12 +5738,13 @@ elif view == "Estimates & Revisions":
         if isinstance(trend, pd.DataFrame) and not trend.empty:
             tr = relabel(trend)
             order = [c for c in ("90daysAgo", "60daysAgo", "30daysAgo", "7daysAgo", "current") if c in tr.columns]
+            _ord_lbl = {"90daysAgo": "90d ago", "60daysAgo": "60d ago", "30daysAgo": "30d ago", "7daysAgo": "7d ago", "current": "Now"}
             if order:
                 figt2 = go.Figure()
-                for period in tr.index:
+                for period_k in tr.index:
                     figt2.add_trace(go.Scatter(
-                        x=["90d ago", "60d ago", "30d ago", "7d ago", "Now"][-len(order):],
-                        y=[tr.loc[period, c] * fx for c in order], mode="lines+markers", name=str(period)))
+                        x=[_ord_lbl[c] for c in order],
+                        y=[conv(tr.loc[period_k, c], fx) for c in order], mode="lines+markers", name=str(period_k)))
                 figt2.update_yaxes(title_text=f"Consensus EPS ({sym})")
                 style_fig(figt2, height=330)
                 figure(figt2, "How the EPS consensus has moved",
@@ -5288,7 +5773,9 @@ elif view == "Estimates & Revisions":
                 figrv.update_layout(barmode="relative")
                 figrv.update_yaxes(title_text="Number of analysts")
                 style_fig(figrv, height=330)
-                net_up = float(rv[up_cols[0]].sum() - rv[down_cols[0]].sum()) if not rv.empty else 0
+                _up_sum = pd.to_numeric(rv[up_cols[0]], errors="coerce").fillna(0).sum()
+                _dn_sum = pd.to_numeric(rv[down_cols[0]], errors="coerce").fillna(0).sum()
+                net_up = float(_up_sum - _dn_sum) if not rv.empty else 0.0
                 figure(figrv, "Estimate revisions, up against down",
                        "How many analysts raised their estimate and how many cut it, for each forward period.",
                        "Revisions cluster: analysts move in the same direction at the same time, because they "
@@ -5308,16 +5795,39 @@ elif view == "Estimates & Revisions":
               "the broad index.",
               formats={c: "{:+,.1%}" for c in g.columns if g[c].dtype.kind in "fc"})
 
-    note("""
-Estimates are opinions with a publication schedule, and they are worth reading as a record of what the market
-believes rather than as a forecast.
-- **The revisions and the trend matter more than the level.** By the time an estimate is published it is
-already in the price; the direction it has been moving is the part still being absorbed.
-- **A beat against a lowered estimate is not a beat against the original expectation.** Read the earnings
-history and the EPS trend together, never separately.
-- **Coverage is not uniform.** A consensus built from two analysts carries none of the averaging that makes a
-consensus of thirty useful, and the analyst count is shown beside every estimate for that reason.
-""", tone="neu")
+    _est_bullets = []
+    if isinstance(hist_eps, pd.DataFrame) and not hist_eps.empty:
+        _ec = next((c for c in ("epsEstimate", "estimate") if c in hist_eps.columns), None)
+        _ac = next((c for c in ("epsActual", "actual") if c in hist_eps.columns), None)
+        if _ec and _ac:
+            _surp = (hist_eps[_ac] - hist_eps[_ec]).dropna()
+            if not _surp.empty:
+                _bts = int((_surp >= 0).sum())
+                _est_bullets.append(
+                    f"- **Track record against expectations.** Beat or met consensus in **{_bts} of {len(_surp)}** recent quarters "
+                    f"({'consistent positive execution' if _bts / len(_surp) >= 0.75 else 'mixed delivery against Street targets'})."
+                )
+    if isinstance(revisions, pd.DataFrame) and not revisions.empty:
+        _uc = [c for c in revisions.columns if c.lower().startswith("up")]
+        _dc = [c for c in revisions.columns if c.lower().startswith("down")]
+        if _uc and _dc:
+            _u_tot = int(pd.to_numeric(revisions[_uc[0]], errors="coerce").fillna(0).sum())
+            _d_tot = int(pd.to_numeric(revisions[_dc[0]], errors="coerce").fillna(0).sum())
+            _net_r = _u_tot - _d_tot
+            _est_bullets.append(
+                f"- **Revision momentum.** Analysts logged **{_u_tot} upward** vs **{_d_tot} downward** revisions recently "
+                f"({'estimates are trending higher — constructive momentum' if _net_r > 0 else 'downward revisions dominate — sentiment is softening' if _net_r < 0 else 'balanced revisions with no directional shift'})."
+            )
+    _est_bullets.append(
+        "- **How to read consensus.** Revisions and trend matter more than static levels: a beat against a steadily lowered bar "
+        "is weaker than a beat against rising estimates. Always check the analyst count beside each estimate."
+    )
+    note(
+        f"**Consensus summary for {co.ticker}:**\n" + "\n".join(_est_bullets),
+        tone="pos" if any("constructive momentum" in b for b in _est_bullets) else
+             "warn" if any("softening" in b for b in _est_bullets) else "neu",
+        title="Interpreting analyst estimates",
+    )
 
 
 # ==============================================================================
@@ -5344,25 +5854,33 @@ elif view == "Technical Analysis":
     with c_osc:
         oscillators = st.multiselect("Lower panels", ["Volume", "RSI", "MACD"], default=["Volume", "RSI"])
 
-    last_px = float(hist["Close"].dropna().iloc[-1])
+    close_clean = hist["Close"].dropna()
+    if close_clean.empty:
+        empty_state("No valid closing prices in this window.", "Choose a different chart period in the sidebar.")
+        st.stop()
+    last_px = float(close_clean.iloc[-1])
+    first_px = float(close_clean.iloc[0])
+    period_chg = (last_px / first_px - 1) if first_px > 0 else None
     rsi = last(hist, "RSI")
     atr = last(hist, "ATR")
     sma50, sma200 = last(hist, "SMA_50"), last(hist, "SMA_200")
+    vs50 = (last_px / sma50 - 1) if (_isnum(sma50) and sma50 > 0) else None
+    vs200 = (last_px / sma200 - 1) if (_isnum(sma200) and sma200 > 0) else None
     vol_ratio = safe_div(last(hist, "Volume"), last(hist, "Vol_SMA_20"))
 
     kpi_grid([
         {"label": "Last close", "value": Fmt.price(last_px, sym),
-         "sub": f"{period_label} change {Fmt.as_pct(last_px / float(hist['Close'].dropna().iloc[0]) - 1, signed=True)}",
+         "sub": f"{period_label} change {Fmt.as_pct(period_chg, signed=True)}",
          "tone": "flat"},
-        {"label": "Versus 50-day", "value": Fmt.as_pct(safe_div(last_px, sma50) - 1 if sma50 else None, signed=True),
+        {"label": "Versus 50-day", "value": Fmt.as_pct(vs50, signed=True),
          "sub": f"50-day at {Fmt.price(sma50, sym)}",
-         "tone": "good" if sma50 and last_px > sma50 else "bad"},
-        {"label": "Versus 200-day", "value": Fmt.as_pct(safe_div(last_px, sma200) - 1 if sma200 else None, signed=True),
+         "tone": "flat" if vs50 is None else ("good" if vs50 > 0 else "bad")},
+        {"label": "Versus 200-day", "value": Fmt.as_pct(vs200, signed=True),
          "sub": f"200-day at {Fmt.price(sma200, sym)}",
-         "tone": "good" if sma200 and last_px > sma200 else "bad"},
+         "tone": "flat" if vs200 is None else ("good" if vs200 > 0 else "bad")},
         {"label": "RSI (14)", "value": Fmt.ratio(rsi, 1, suffix=""),
          "sub": "Above 70 stretched · below 30 washed out",
-         "tone": "warn" if _isnum(rsi) and (rsi > 70 or rsi < 30) else "good"},
+         "tone": "warn" if _isnum(rsi) and (rsi > 70 or rsi < 30) else "good" if _isnum(rsi) else "flat"},
         {"label": "ATR (14)", "value": Fmt.price(atr, sym),
          "sub": f"{Fmt.as_pct(safe_div(atr, last_px))} of price per day", "tone": "flat",
          "help": "Average true range: the typical daily trading range, a plain measure of volatility."},
@@ -5426,6 +5944,38 @@ elif view == "Technical Analysis":
            "a view on value from the other sections.",
            data=hist[[c for c in ("Close", "SMA_50", "SMA_200", "RSI") if c in hist.columns]])
 
+    # Tailored technical posture interpretation
+    _ta_trend = (
+        f"Bullish alignment: price ({Fmt.price(last_px, sym)}) trades above both its 50-day and 200-day moving averages"
+        + (" with the 50-day above the 200-day (golden-cross structure)." if _isnum(sma50) and _isnum(sma200) and sma50 > sma200 else ".")
+        if _isnum(vs50) and _isnum(vs200) and vs50 > 0 and vs200 > 0 else
+        f"Bearish alignment: price ({Fmt.price(last_px, sym)}) trades below both its 50-day and 200-day moving averages"
+        + (" (death-cross structure)." if _isnum(sma50) and _isnum(sma200) and sma50 < sma200 else ".")
+        if _isnum(vs50) and _isnum(vs200) and vs50 < 0 and vs200 < 0 else
+        f"Transitional trend: price sits {Fmt.as_pct(vs50, signed=True)} vs 50-day and {Fmt.as_pct(vs200, signed=True)} vs 200-day."
+        if (_isnum(vs50) or _isnum(vs200)) else
+        "Select a 1-year or longer chart period to evaluate 50-day and 200-day trend regimes."
+    )
+    _ta_rsi = (
+        f"RSI (14) at **{rsi:,.1f}** is **overbought (>70)** — upward momentum is strong, though short-term pullbacks are common."
+        if _isnum(rsi) and rsi > 70 else
+        f"RSI (14) at **{rsi:,.1f}** is **oversold (<30)** — selling pressure is stretched, creating potential mean-reversion setups if fundamentals hold."
+        if _isnum(rsi) and rsi < 30 else
+        f"RSI (14) at **{rsi:,.1f}** sits in **constructive territory (50–70)** without extreme overheating."
+        if _isnum(rsi) and rsi >= 50 else
+        f"RSI (14) at **{rsi:,.1f}** sits in **soft momentum (30–50)**, showing buyers have not yet regained control."
+        if _isnum(rsi) else "RSI requires at least 14 trading bars."
+    )
+    _atr_pct = safe_div(atr, last_px)
+    note(f"""
+**Technical posture for {co.ticker} ({period_label}):**
+- **Trend structure.** {_ta_trend}
+- **Momentum.** {_ta_rsi}
+- **Daily swing & participation.** Typical daily range (ATR) is **{Fmt.price(atr, sym)}** ({Fmt.as_pct(_atr_pct)} of price){f', while recent volume is **{Fmt.ratio(vol_ratio)}** its 20-day average' if _isnum(vol_ratio) else ''}.
+""", tone="pos" if (_isnum(vs50) and vs50 > 0 and _isnum(vs200) and vs200 > 0) else
+          "neg" if (_isnum(vs50) and vs50 < 0 and _isnum(vs200) and vs200 < 0) else "neu",
+         title="Technical posture interpretation")
+
     # --- Forecast --------------------------------------------------------------
     section("Forecast",
             "Three projections built on different assumptions. Where they agree there is weak evidence; "
@@ -5473,16 +6023,17 @@ elif view == "Technical Analysis":
                "a good and a bad outcome — which they almost always are — then the central lines are not a "
                "target, they are the midpoint of a distribution. Where the damped trend diverges from the "
                "log-linear one, recent behaviour differs from the longer window.",
-               f"The trend explains {Fmt.as_pct(r2)} of the variation in this window "
-               f"(R² = {r2:,.2f}). " if _isnum(r2) else ""
-               "None of these methods knows anything about earnings, competition or the news. They extrapolate "
+               (f"The trend explains {Fmt.as_pct(r2)} of the variation in this window "
+                f"(R² = {r2:,.2f}). " if _isnum(r2) else "")
+               + "None of these methods knows anything about earnings, competition or the news. They extrapolate "
                "price history, which is exactly the thing that stops working when something changes.",
                data=fc)
 
         end = fc.iloc[-1]
+        _tr_diff = (end["Trend"] / last_px - 1) if last_px > 0 else None
         kpi_grid([
             {"label": "Trend projection", "value": Fmt.price(end["Trend"], sym),
-             "sub": f"{Fmt.as_pct(end['Trend'] / last_px - 1, signed=True)} from today",
+             "sub": f"{Fmt.as_pct(_tr_diff, signed=True)} from today",
              "tone": "good" if end["Trend"] > last_px else "bad"},
             {"label": "Damped trend", "value": Fmt.price(end.get("Damped trend"), sym),
              "sub": "Weights recent days most heavily", "tone": "flat"},
@@ -5557,14 +6108,24 @@ elif view == "Financial Statements":
                                "balance sheet) and adds the industry median beside it. Growth shows the "
                                "period-on-period change.")
 
-    # Industry benchmark: same live peer matching as section 6, so the
-    # common-size view always has something to be compared against.
+    # Industry benchmark: fetched only when Common size view is active (or opted-in
+    # on Line by line), avoiding 8 peer network round-trips when reading Reported/Growth.
     bench = {"income": pd.Series(dtype="float64"), "balance": pd.Series(dtype="float64"), "n": 0}
-    with st.spinner("Building the industry benchmark from live peers…"):
-        bench_peers = tuple(suggest_peers(co.ticker, info.get("sector"), info.get("industry"), max_n=8))
-        if bench_peers:
-            bench = load_industry_commonsize(bench_peers)
+    _bench_meta = {"loaded": False, "peers": ()}
+
+    def _ensure_bench():
+        if _bench_meta["loaded"]:
+            return
+        _bench_meta["loaded"] = True
+        with st.spinner("Building the industry benchmark from live peers…"):
+            peers_found = tuple(suggest_peers(co.ticker, info.get("sector"), info.get("industry"), max_n=8))
+            _bench_meta["peers"] = peers_found
+            if peers_found:
+                bench.update(load_industry_commonsize(peers_found))
+
     if stmt_view == "Common size":
+        _ensure_bench()
+        bench_peers = _bench_meta["peers"]
         if bench["n"]:
             st.caption(f"Industry median columns are computed live from {bench['n']} peers matched on "
                        f"{info.get('industry') or info.get('sector') or 'sector'} "
@@ -5602,7 +6163,7 @@ elif view == "Financial Statements":
                     extra_cols = ["Industry median", "Gap (pp)"]
         elif stmt_view == "Growth":
             ordered = sub[sorted(sub.columns)]
-            sub = (ordered.pct_change(axis=1) * 100)[sorted(sub.columns, reverse=True)]
+            sub = (ordered.T.pct_change(fill_method=None).T * 100)[sorted(sub.columns, reverse=True)]
             fmt = "{:+,.1f}%"
         elif len(sub.columns) >= 2:
             latest, prev = sub.iloc[:, 0], sub.iloc[:, 1]
@@ -5663,13 +6224,13 @@ elif view == "Financial Statements":
                 labels = year_labels(inc_d.index, basis)
                 pick_label = st.selectbox("Bridge period", list(reversed(labels)), key="bridge_year")
                 row = inc_d.iloc[labels.index(pick_label)]
-                rev = row.get("Total Revenue", 0) or 0
+                rev = _num(row.get("Total Revenue"), 0.0)
                 gross = row.get("Gross Profit", np.nan)
                 opinc = row.get("Operating Income", np.nan)
                 net = row.get("Net Income", np.nan)
-                cogs = -(rev - gross) if _isnum(gross) else 0
-                opex = -(gross - opinc) if _isnum(gross) and _isnum(opinc) else 0
-                below = -(opinc - net) if _isnum(opinc) and _isnum(net) else 0
+                cogs = -(rev - float(gross)) if _isnum(gross) else 0.0
+                opex = -(float(gross) - float(opinc)) if _isnum(gross) and _isnum(opinc) else 0.0
+                below = -(float(opinc) - float(net)) if _isnum(opinc) and _isnum(net) else 0.0
                 figw = go.Figure(go.Waterfall(
                     orientation="v",
                     measure=["absolute", "relative", "total", "relative", "total", "relative", "total"],
@@ -5689,6 +6250,36 @@ elif view == "Financial Statements":
                        "to look when margins move.",
                        "The bridge makes it obvious whether profit is being made or lost in production "
                        "(cost of revenue), in overheads, or below the operating line in financing and tax.")
+
+            _rev_last = last(inc_d, "Total Revenue")
+            _gp_last = last(inc_d, "Gross Profit")
+            _op_last = last(inc_d, "Operating Income")
+            _ni_last = last(inc_d, "Net Income")
+            _gm_pct = safe_div(_gp_last, _rev_last)
+            _om_pct = safe_div(_op_last, _rev_last)
+            _nm_pct = safe_div(_ni_last, _rev_last)
+            _rev_ser = col(inc_d, "Total Revenue")
+            _op_ser = col(inc_d, "Operating Income")
+            _rev_yoy = (float(_rev_ser.dropna().iloc[-1] / _rev_ser.dropna().iloc[-2] - 1)
+                        if _rev_ser is not None and len(_rev_ser.dropna()) >= 2 and _rev_ser.dropna().iloc[-2] else None)
+            _op_yoy = (float(_op_ser.dropna().iloc[-1] / _op_ser.dropna().iloc[-2] - 1)
+                       if _op_ser is not None and len(_op_ser.dropna()) >= 2 and _op_ser.dropna().iloc[-2] else None)
+            _lev_txt = (
+                "Operating profit grew faster than revenue, confirming **positive operating leverage**."
+                if _isnum(_rev_yoy) and _isnum(_op_yoy) and _op_yoy > _rev_yoy + 0.01 else
+                "Operating profit lagged revenue growth, signaling **cost pressure or investment drag**."
+                if _isnum(_rev_yoy) and _isnum(_op_yoy) and _op_yoy < _rev_yoy - 0.01 else
+                "Operating profit tracked revenue broadly in line."
+                if _isnum(_rev_yoy) and _isnum(_op_yoy) else
+                "Compare multiple periods in the **Growth** view above to check operating leverage."
+            )
+            note(f"""
+On the **{basis}** basis, **{co.ticker}** converted **{Fmt.money(_rev_last, sym)}** of revenue into
+**{Fmt.money(_op_last, sym)}** operating profit ({Fmt.as_pct(_om_pct)} margin) and **{Fmt.money(_ni_last, sym)}** net income ({Fmt.as_pct(_nm_pct)} margin).
+- **Gross-to-operating spread.** Gross margin is **{Fmt.as_pct(_gm_pct)}**; overhead consumes {Fmt.as_pct((_gm_pct - _om_pct) if _isnum(_gm_pct) and _isnum(_om_pct) else None)} of sales.
+- **Operating leverage.** {f'Latest revenue changed **{Fmt.as_pct(_rev_yoy, signed=True)}** while operating income changed **{Fmt.as_pct(_op_yoy, signed=True)}**. ' if _isnum(_rev_yoy) and _isnum(_op_yoy) else ''}{_lev_txt}
+""", tone="pos" if _isnum(_om_pct) and _om_pct >= 0.15 else "warn" if _isnum(_nm_pct) and _nm_pct < 0 else "neu",
+                 title="Income statement interpretation")
 
     with t_bs:
         if bs_d.empty:
@@ -5715,22 +6306,24 @@ elif view == "Financial Statements":
                                 base=asset_base, base_label="total assets", bench_key="balance")
             with right:
                 latest = bs_d.iloc[-1]
-                ca = latest.get("Current Assets", 0) or 0
-                ta = latest.get("Total Assets", 0) or 0
-                figp = go.Figure(go.Pie(labels=["Current (liquid)", "Non-current (fixed)"],
-                                        values=[ca, max(ta - ca, 0)], hole=.58,
-                                        marker=dict(colors=[T["accent_soft"], T["faint"]])))
-                style_fig(figp, height=270)
-                figure(figp, "Asset mix",
-                       "The split between assets that turn into cash within a year and those that do not.",
-                       "A heavy current share means flexibility, and sometimes idle capital. A heavy "
-                       "non-current share means the business is capital-intensive: earnings depend on assets "
-                       "that cannot be liquidated quickly.",
-                       "Asset mix sets how quickly a business can react to a downturn.")
+                ca = _num(latest.get("Current Assets"), 0.0)
+                ta = _num(latest.get("Total Assets"), 0.0)
+                if ta > 0:
+                    figp = go.Figure(go.Pie(labels=["Current (liquid)", "Non-current (fixed)"],
+                                            values=[max(ca, 0.0), max(ta - ca, 0.0)], hole=.58,
+                                            marker=dict(colors=[T["accent_soft"], T["faint"]])))
+                    style_fig(figp, height=270)
+                    figure(figp, "Asset mix",
+                           "The split between assets that turn into cash within a year and those that do not.",
+                           "A heavy current share means flexibility, and sometimes idle capital. A heavy "
+                           "non-current share means the business is capital-intensive: earnings depend on assets "
+                           "that cannot be liquidated quickly.",
+                           "Asset mix sets how quickly a business can react to a downturn.")
                 x = year_labels(bs_d.index, basis)
                 figl = go.Figure()
                 if "Current Assets" in bs_d.columns and "Current Liabilities" in bs_d.columns:
-                    figl.add_trace(go.Scatter(x=x, y=bs_d["Current Assets"] / bs_d["Current Liabilities"],
+                    cr_ser = bs_d["Current Assets"] / bs_d["Current Liabilities"].replace(0, np.nan)
+                    figl.add_trace(go.Scatter(x=x, y=cr_ser,
                                               name="Current ratio", mode="lines+markers",
                                               line=dict(color=T["accent"], width=2.5)))
                     figl.add_hline(y=1.0, line_dash="dot", line_color=T["danger"])
@@ -5743,6 +6336,20 @@ elif view == "Financial Statements":
                            "generated. Comfortably above 2.0x can mean capital sitting idle.",
                            "The direction matters more than the level: a ratio falling steadily toward 1.0x is "
                            "an early warning even while it is still technically fine.")
+
+            _eq_bs = last(bs_d, "Stockholders Equity")
+            _ta_bs = last(bs_d, "Total Assets")
+            _cl_bs = last(bs_d, "Current Liabilities")
+            _ca_bs = last(bs_d, "Current Assets")
+            _cr_last = safe_div(_ca_bs, _cl_bs)
+            _eq_share = safe_div(_eq_bs, _ta_bs)
+            _gw_bs = last(bs_d, "Goodwill")
+            note(f"""
+Latest **{basis}** balance sheet carries **{Fmt.money(_ta_bs, sym)}** in total assets funded **{Fmt.as_pct(_eq_share)}** by shareholders' equity.
+- **Liquidity position.** Current ratio is **{Fmt.ratio(_cr_last)}** ({'comfortable near-term liquidity (>1.5x)' if _isnum(_cr_last) and _cr_last >= 1.5 else 'adequate coverage (1.0x–1.5x)' if _isnum(_cr_last) and _cr_last >= 1.0 else 'below 1.0x — watch short-term obligations closely' if _isnum(_cr_last) else 'not reported for this structure'}).
+- **Asset quality.** Current assets represent **{Fmt.as_pct(safe_div(_ca_bs, _ta_bs))}** of the asset base{f', while goodwill accounts for **{Fmt.as_pct(safe_div(_gw_bs, _ta_bs))}**' if _isnum(_gw_bs) and _isnum(_ta_bs) else ''}.
+""", tone="warn" if (_isnum(_cr_last) and _cr_last < 1.0) or (_isnum(_eq_share) and _eq_share < 0.2) else "neu",
+                 title="Balance sheet interpretation")
 
     with t_cf:
         if cf_d.empty:
@@ -5760,8 +6367,25 @@ elif view == "Financial Statements":
                             "Financing activities", "Cash exchanged with lenders and shareholders.")
             statement_table(cf_d, ["Free Cash Flow", "End Cash Position"],
                             "Summary", "The bottom line of the cash statement.")
+            _ocf_l = last(cf_d, "Operating Cash Flow")
+            _capex_l = abs(last(cf_d, "Capital Expenditure") or 0.0) if _isnum(last(cf_d, "Capital Expenditure")) else None
+            _fcf_l = last(cf_d, "Free Cash Flow")
+            if not _isnum(_fcf_l) and _isnum(_ocf_l) and _isnum(_capex_l):
+                _fcf_l = _ocf_l - _capex_l
+            _ni_cf = last(cf_d, "Net Income") or last(inc_d, "Net Income")
+            _conv_cf = safe_div(_ocf_l, _ni_cf) if _isnum(_ni_cf) and _ni_cf > 0 else None
+            _cap_int = safe_div(_capex_l, _ocf_l) if _isnum(_ocf_l) and _ocf_l > 0 else None
+            note(f"""
+Operating cash flow of **{Fmt.money(_ocf_l, sym)}** minus capital spending of **{Fmt.money(_capex_l, sym)}** leaves **{Fmt.money(_fcf_l, sym)}** in free cash flow.
+- **Earnings backing.** Cash conversion (OCF / Net Income) stands at **{Fmt.ratio(_conv_cf)}** — {'reported earnings are solidly backed by real cash.' if _isnum(_conv_cf) and _conv_cf >= 1.0 else 'operating cash trails accounting profit; inspect working-capital swings in **06. Cash Flow Quality**.' if _isnum(_conv_cf) else 'see **06. Cash Flow Quality** for a full profit-to-cash waterfall.'}
+- **Reinvestment load.** CapEx consumes **{Fmt.as_pct(_cap_int)}** of operating cash flow ({'asset-light cash generator' if _isnum(_cap_int) and _cap_int < 0.25 else 'moderate reinvestment needs' if _isnum(_cap_int) and _cap_int < 0.65 else 'capital-intensive reinvestment cycle' if _isnum(_cap_int) else 'reinvestment ratio unavailable'}).
+""", tone="pos" if _isnum(_fcf_l) and _fcf_l > 0 and (_conv_cf or 0) >= 1.0 else "warn" if _isnum(_fcf_l) and _fcf_l < 0 else "neu",
+                 title="Cash flow interpretation")
 
     with t_guide:
+        if st.checkbox("Include live industry median comparisons (fetches 8 peers)", value=(stmt_view == "Common size"),
+                       key="line_by_line_bench"):
+            _ensure_bench()
         st.markdown(
             "<div class='section-sub'>Every line the company actually reports, explained: what it is, what "
             "moves it, what to watch — with this company's own figure, its share of the relevant total, its "
@@ -6029,7 +6653,7 @@ The company holds a net **{'debt' if net_pos >= 0 else 'cash'}** position of {Fm
 - Free cash flow of {Fmt.money(l_fcf, sym)} covers the {Fmt.money(div_paid + buyback, sym)} returned to
 shareholders {'comfortably' if (l_fcf or 0) > (div_paid + buyback) * 1.2 else 'only just' if (l_fcf or 0) >= (div_paid + buyback) else 'not at all — the shortfall is being financed'}.
 - Cross-check the leverage read against Net debt / EBITDA of {Fmt.ratio(safe_div(co.net_debt, info.get('ebitda')))}
-in section 1 before drawing a conclusion.
+in **08. Solvency & Debt** before drawing a conclusion.
 """, tone="warn" if net_pos > 0 and (l_fcf or 0) < (div_paid + buyback) else "neu")
 
 
@@ -6076,7 +6700,8 @@ elif view == "Capital Allocation":
         if period not in inc_d.index:
             continue
         ic = invested_capital(bs_d.loc[period])
-        ebit = inc_d.loc[period].get("EBIT") or inc_d.loc[period].get("Operating Income")
+        _eb = inc_d.loc[period].get("EBIT")
+        ebit = _eb if _isnum(_eb) else inc_d.loc[period].get("Operating Income")
         if not _isnum(ic) or ic <= 0 or not _isnum(ebit):
             continue
         rows.append({"period": period, "NOPAT": ebit * (1 - tax_rate), "Invested capital": ic,
@@ -6089,9 +6714,9 @@ elif view == "Capital Allocation":
     int_exp, tot_debt = last(inc_d, "Interest Expense"), last(bs_d, "Total Debt")
     if _isnum(int_exp) and _isnum(tot_debt) and tot_debt:
         cost_debt = float(np.clip(abs(int_exp) / tot_debt, 0.005, 0.20))
+    _debt_wacc = (float(info["totalDebt"]) * fx) if _isnum(info.get("totalDebt")) else (tot_debt or 0.0)
     wacc_v, cost_equity, w_e, w_d = Valuation.capm_wacc(
-        beta_v, rf, 0.05, cost_debt, tax_rate, (co.market_cap or 0) * fx,
-        (info.get("totalDebt") or last(bs_d, "Total Debt") or 0) * (1 if info.get("totalDebt") else 1))
+        beta_v, rf, 0.05, cost_debt, tax_rate, (co.market_cap or 0) * fx, _debt_wacc)
     wacc_pct = float(np.clip(wacc_v, 0.04, 0.20)) * 100
 
     latest_roic = float(roic_df["ROIC"].iloc[-1]) if not roic_df.empty else None
@@ -6306,9 +6931,9 @@ elif view == "Solvency & Debt":
         c1, c2 = st.columns([1.2, 1])
         with c1:
             figs = go.Figure(go.Bar(x=[f"+{int(i)}bp" for i in sdf.index], y=sdf["Interest cover"],
-                                    marker_color=[T["success"] if v >= 3 else T["warning"] if v >= 1.5
+                                    marker_color=[T["success"] if (_isnum(v) and v >= 3) else T["warning"] if (_isnum(v) and v >= 1.5)
                                                   else T["danger"] for v in sdf["Interest cover"]],
-                                    text=[f"{v:,.1f}x" for v in sdf["Interest cover"]],
+                                    text=[f"{v:,.1f}x" if _isnum(v) else Fmt.NA for v in sdf["Interest cover"]],
                                     textposition="outside", opacity=.85))
             figs.add_hline(y=2.0, line_dash="dot", line_color=T["danger"],
                            annotation_text="2.0x — the level lenders watch")
@@ -6477,7 +7102,7 @@ elif view == "Intrinsic Valuation":
     tax_rate = 0.21
     if not inc_a.empty and {"Tax Provision", "Pretax Income"}.issubset(inc_a.columns):
         pretax, taxp = last(inc_a, "Pretax Income"), last(inc_a, "Tax Provision")
-        if _isnum(pretax) and pretax:
+        if _isnum(pretax) and pretax and _isnum(taxp):
             tax_rate = float(np.clip(taxp / pretax, 0.0, 0.40))
     cost_debt = 0.05
     int_exp = last(inc_a, "Interest Expense")
@@ -6551,7 +7176,7 @@ terminal rate, so growth decays rather than stopping abruptly.
         else:
             fair = res["fair_value"]
             upside = safe_div(fair, cur_price)
-            upside = (upside - 1) if upside else None
+            upside = (upside - 1) if upside is not None else None
             term_share = res["terminal_share"]
             kpi_grid([
                 {"label": "Fair value per share", "value": Fmt.price(fair, sym),
@@ -6663,14 +7288,26 @@ and makes you argue with an assumption instead.
                      for g in g_range] for w in w_range]
             grid_df = pd.DataFrame(grid, index=[f"{w:.1%}" for w in w_range],
                                    columns=[f"{g:.1%}" for g in g_range])
+            _sens_cs = [
+                [0.0, T["danger"]],
+                [0.35, "#f87171"],
+                [0.48, "#fecaca"],
+                [0.5, "rgba(241, 245, 249, 0.45)"],
+                [0.52, "#a7f3d0"],
+                [0.65, "#34d399"],
+                [1.0, T["success"]],
+            ]
             figh = go.Figure(go.Heatmap(
-                z=grid_df.values, x=grid_df.columns, y=grid_df.index, colorscale="RdYlGn",
-                text=[[f"{v:,.0f}" for v in row] for row in grid_df.values],
-                texttemplate="%{text}", textfont={"size": 11},
+                z=grid_df.values, x=grid_df.columns, y=grid_df.index, colorscale=_sens_cs,
+                **({"zmid": cur_price} if cur_price and cur_price > 0 else {}),
+                text=[[f"{v:,.0f}" if _isnum(v) else Fmt.NA for v in row] for row in grid_df.values],
+                texttemplate="%{text}",
+                textfont=dict(size=11.5, family="IBM Plex Mono, monospace", color=T["text"]),
+                xgap=2, ygap=2,
                 colorbar=dict(title=f"Value<br>({sym})")))
-            figh.update_xaxes(title_text="Terminal growth")
-            figh.update_yaxes(title_text="Discount rate", autorange="reversed")
             style_fig(figh, height=330, legend="off")
+            figh.update_xaxes(title_text="Terminal growth", showspikes=False)
+            figh.update_yaxes(title_text="Discount rate", autorange="reversed", showspikes=False)
             figure(figh, "Fair value sensitivity to discount rate and terminal growth",
                    f"Fair value per share in {target_currency} across a grid around your base assumptions. "
                    f"The market price today is {Fmt.price(cur_price, sym)}.",
@@ -6825,14 +7462,21 @@ elif view == "Peer Comparables":
                data=rdf)
 
     # --- Growth versus valuation ----------------------------------------------
-    scatter_df = peers.dropna(subset=["Revenue Growth (%)", "EV/EBITDA"])
+    scatter_df = peers.dropna(subset=["Revenue Growth (%)", "EV/EBITDA", "Market Cap"])
+    scatter_df = scatter_df[scatter_df["Market Cap"] > 0]
     if len(scatter_df) >= 3:
-        figs = px.scatter(scatter_df, x="Revenue Growth (%)", y="EV/EBITDA", text=scatter_df.index,
-                          size="Market Cap", size_max=42,
-                          color=[c == co.ticker for c in scatter_df.index],
-                          color_discrete_map={True: T["success"], False: T["accent_soft"]},
-                          trendline="ols", trendline_scope="overall",
-                          trendline_color_override=T["faint"])
+        try:
+            figs = px.scatter(scatter_df, x="Revenue Growth (%)", y="EV/EBITDA", text=scatter_df.index,
+                              size="Market Cap", size_max=42,
+                              color=[c == co.ticker for c in scatter_df.index],
+                              color_discrete_map={True: T["success"], False: T["accent_soft"]},
+                              trendline="ols", trendline_scope="overall",
+                              trendline_color_override=T["faint"])
+        except Exception:
+            figs = px.scatter(scatter_df, x="Revenue Growth (%)", y="EV/EBITDA", text=scatter_df.index,
+                              size="Market Cap", size_max=42,
+                              color=[c == co.ticker for c in scatter_df.index],
+                              color_discrete_map={True: T["success"], False: T["accent_soft"]})
         figs.update_traces(textposition="top center", textfont_size=11)
         style_fig(figs, height=420, legend="off")
         med_g = scatter_df["Revenue Growth (%)"].median()
@@ -6873,7 +7517,7 @@ Bars that disagree sharply with each other point to one input being distorted ra
         "P/E": ((info.get("trailingEps") or 0) * fx, "equity"),
         "P/B": ((info.get("bookValue") or 0) * fx, "equity"),
         "EV/EBITDA": (ebitda, "enterprise"),
-        "EV/Sales": (revenue / shares if shares else 0, "equity"),
+        "EV/Sales": (revenue, "enterprise"),
     }
     field = []
     for metric, (value, kind) in fundamentals.items():
@@ -6931,15 +7575,15 @@ Bars that disagree sharply with each other point to one input being distorted ra
         note(f"""
 Averaged across the multiples above, the peer group's median valuation implies
 **{Fmt.pct(avg_up, signed=True)}** against today's price.
-- This is a statement about **relative** value: it says the shares look {'cheap' if avg_up > 0 else 'expensive'}
+- This is a statement about **relative** value: it says the shares look {'cheap' if _isnum(avg_up) and avg_up > 0 else 'expensive' if _isnum(avg_up) else 'in line'}
 next to the peers you chose, not that the peer group itself is correctly valued.
 - The methods {'broadly agree' if _isnum(spread) and spread < 15 else 'disagree materially with one another'}
 {'' if _isnum(spread) and spread < 15 else ', which usually means one input — leverage, a one-off earnings item, or an accounting difference — is distorting a multiple'}.
 - Peer choice drives the answer. Adding or removing two companies can move the median by more than any
 analytical insight in this section, so it is worth checking the table above for names that do not really belong.
-- Read this alongside section 5: the DCF answers what the business is worth, this answers what the market is
+- Read this alongside **10. Intrinsic Valuation**: the DCF answers what the business is worth, this answers what the market is
 currently paying for similar businesses.
-""", tone="pos" if avg_up > 5 else "neg" if avg_up < -5 else "neu")
+""", tone="pos" if _isnum(avg_up) and avg_up > 5 else "neg" if _isnum(avg_up) and avg_up < -5 else "neu")
 
 
 # ==============================================================================
@@ -6978,7 +7622,10 @@ elif view == "Risk & Scenarios":
     ])
 
     close = hist2y["Close"].dropna()
-    ret = close.pct_change().dropna()
+    ret = close.pct_change(fill_method=None).dropna()
+    if len(close) < 2 or ret.empty:
+        empty_state("Not enough valid daily returns to build risk charts.")
+        st.stop()
     r1, r2 = st.columns(2)
     with r1:
         cum = (1 + ret).cumprod()
@@ -7029,15 +7676,17 @@ elif view == "Risk & Scenarios":
 
     @st.cache_data(max_entries=50, ttl=1800, show_spinner=False)
     def simulate(last_price: float, mu: float, sigma: float, days: int, paths: int, seed: int):
-        """Vectorised geometric random walk. The previous implementation used a
-        nested Python loop over paths and days; this generates the whole matrix
-        at once and is roughly two orders of magnitude faster."""
+        """Vectorised geometric Brownian motion random walk so simulated prices
+        stay strictly positive even at high volatility."""
         rng = np.random.default_rng(int(seed))
-        shocks = rng.normal(mu, sigma, size=(days, paths))
-        return float(last_price) * np.cumprod(1.0 + shocks, axis=0)
+        log_shocks = rng.normal(mu, max(sigma, 0.0), size=(days, paths))
+        return float(last_price) * np.exp(np.cumsum(log_shocks, axis=0))
 
     last_price = float(close.iloc[-1]) * fx
-    paths = simulate(last_price, float(ret.mean()), float(ret.std()), int(horizon), int(sims), int(seed))
+    log_ret = np.log(close / close.shift(1)).replace([np.inf, -np.inf], np.nan).dropna()
+    _mu_log = float(log_ret.mean()) if not log_ret.empty else 0.0
+    _sd_log = float(log_ret.std()) if len(log_ret) >= 2 and _isnum(log_ret.std()) else 0.01
+    paths = simulate(last_price, _mu_log, _sd_log, int(horizon), int(sims), int(seed))
     finals = paths[-1]
     p5, p25, p50, p75, p95 = (np.percentile(paths, q, axis=1) for q in (5, 25, 50, 75, 95))
     days_idx = np.arange(1, horizon + 1)
@@ -7487,16 +8136,25 @@ elif view == "Market Leaders":
                "does not.",
                data=top[["Ticker", "Market Cap", "Revenue"]].set_index("Ticker"))
     with lb2:
-        figt = px.treemap(top, path=["Market", "Ticker"], values="Market Cap",
-                          color="Net Margin (%)", color_continuous_scale="RdYlGn",
-                          color_continuous_midpoint=10)
-        figt.update_traces(textinfo="label+percent root")
-        style_fig(figt, height=400, legend="off")
-        figure(figt, "Relative size and profitability",
-               "Rectangle area is market capitalisation; colour is net margin, green for higher.",
-               "Look for **large but red** rectangles: big companies earning thin margins, where scale is doing "
-               "the work rather than pricing power. Small green ones are the reverse.",
-               "Size and quality are different things, and a ranking by size alone hides that.")
+        tm_df = top.dropna(subset=["Market Cap"]).copy()
+        tm_df = tm_df[tm_df["Market Cap"] > 0]
+        if not tm_df.empty:
+            tm_df["Market"] = tm_df["Market"].fillna("Other").replace("", "Other")
+            if tm_df["Net Margin (%)"].notna().any():
+                figt = px.treemap(tm_df, path=["Market", "Ticker"], values="Market Cap",
+                                  color="Net Margin (%)", color_continuous_scale="RdYlGn",
+                                  color_continuous_midpoint=10)
+            else:
+                figt = px.treemap(tm_df, path=["Market", "Ticker"], values="Market Cap")
+            figt.update_traces(textinfo="label+percent root")
+            style_fig(figt, height=400, legend="off")
+            figure(figt, "Relative size and profitability",
+                   "Rectangle area is market capitalisation; colour is net margin, green for higher.",
+                   "Look for **large but red** rectangles: big companies earning thin margins, where scale is doing "
+                   "the work rather than pricing power. Small green ones are the reverse.",
+                   "Size and quality are different things, and a ranking by size alone hides that.")
+        else:
+            empty_state("Not enough positive market-cap values for a treemap.")
 
     hist_tickers = tuple(top["Ticker"].tolist())
     with st.spinner("Loading three years of history…"):
@@ -7542,6 +8200,22 @@ elif view == "Market Leaders":
           formats={"Market Cap": lambda v: Fmt.money(v, sym), "Revenue": lambda v: Fmt.money(v, sym),
                    "Price": lambda v: Fmt.price(v, sym), "Net Margin (%)": "{:,.1f}%"})
 
+    _tot_mcap = float(top["Market Cap"].dropna().sum())
+    _top3_mcap = float(top["Market Cap"].head(3).dropna().sum())
+    _top3_share = safe_div(_top3_mcap, _tot_mcap)
+    _med_nm = float(top["Net Margin (%)"].dropna().median()) if top["Net Margin (%)"].notna().any() else None
+    _best_nm_row = top.loc[top["Net Margin (%)"].idxmax()] if top["Net Margin (%)"].notna().any() else None
+    _best_rev_row = top.loc[top["Revenue"].idxmax()] if top["Revenue"].notna().any() else None
+    _leader = top.iloc[0]
+    _active_rank = (int(display[display["Ticker"] == co.ticker].index[0])
+                    if co.ticker in display["Ticker"].values else None)
+    note(f"""
+**{ _leader['Ticker'] }** leads this {len(top)}-company ranking at **{Fmt.money(_leader['Market Cap'], sym)}** market capitalisation.
+- **Concentration.** The top 3 companies account for **{Fmt.as_pct(_top3_share)}** of the displayed universe's combined value ({Fmt.money(_tot_mcap, sym)}){' — heavily top-heavy leadership.' if _isnum(_top3_share) and _top3_share >= 0.5 else ' — relatively broad size distribution.' if _isnum(_top3_share) else '.'}
+- **Scale vs profitability.** {f"Largest by sales is **{_best_rev_row['Ticker']}** ({Fmt.money(_best_rev_row['Revenue'], sym)} revenue), while highest net margin belongs to **{_best_nm_row['Ticker']}** ({_best_nm_row['Net Margin (%)']:,.1f}% vs group median **{Fmt.pct(_med_nm)}**)." if _best_rev_row is not None and _best_nm_row is not None else 'Compare the Market Cap bar against the Revenue line to spot margin-driven valuation premiums.'}
+- **Active company position.** {f'Your selected ticker **{co.ticker}** ranks **#{_active_rank} of {len(top)}** in this view.' if _active_rank else f'**{co.ticker}** is outside this top-{len(top)} cut (or not part of the selected pool).'}
+""", tone="neu", title="Market leadership interpretation")
+
 
 # ==============================================================================
 elif view == "Compare Companies":
@@ -7583,7 +8257,9 @@ elif view == "Compare Companies":
     returns_12m = {}
     if not closes.empty:
         rebased = closes.dropna(how="all").ffill()
-        rebased = rebased / rebased.bfill().iloc[0] * 100
+        if not rebased.empty:
+            _base = rebased.bfill().iloc[0].replace(0, np.nan)
+            rebased = rebased / _base * 100
         figc = go.Figure()
         for t in cmp_df.index:
             if t not in rebased.columns:
@@ -7631,9 +8307,12 @@ elif view == "Compare Companies":
     prof["Profitability"] = [np.nanmean([v for v in (
         scale(r.get("Op Margin (%)"), 0, 30), scale(r.get("ROE (%)"), 0, 25)) if v is not None] or [np.nan])
         for _, r in cmp_df.iterrows()]
-    prof["Growth"] = [scale(r.get("Revenue Growth (%)"), -5, 25) or np.nan for _, r in cmp_df.iterrows()]
-    prof["Balance sheet"] = [scale(r.get("Net Debt/EBITDA"), 4, 0) or np.nan for _, r in cmp_df.iterrows()]
-    prof["Momentum"] = [scale((returns_12m.get(t, np.nan) or 0) * 100, -30, 40) or np.nan for t in cmp_df.index]
+    prof["Growth"] = [(_s if (_s := scale(r.get("Revenue Growth (%)"), -5, 25)) is not None else np.nan)
+                      for _, r in cmp_df.iterrows()]
+    prof["Balance sheet"] = [(_s if (_s := scale(r.get("Net Debt/EBITDA"), 4, 0)) is not None else np.nan)
+                             for _, r in cmp_df.iterrows()]
+    prof["Momentum"] = [(_s if (_s := scale(returns_12m[t] * 100 if t in returns_12m and _isnum(returns_12m[t]) else None, -30, 40)) is not None else np.nan)
+                        for t in cmp_df.index]
 
     figp = go.Figure()
     for t in prof.index:
@@ -7650,16 +8329,29 @@ elif view == "Compare Companies":
            "cheap for a reason; one high on both is the rarer case worth understanding. Bars are directly "
            "comparable because every company is scored on the same scale.",
            "Scores come from the quote snapshot rather than the full statements, so this is a screen for "
-           "where to look, not a substitute for section 1's deeper scorecard.",
+           "where to look, not a substitute for **01. Executive Dashboard**'s deeper scorecard.",
            data=prof)
 
     if not closes.empty and closes.shape[1] > 1:
-        corr = closes.pct_change().corr()
+        corr = closes.pct_change(fill_method=None).corr()
+        _corr_cs = [
+            [0.0, T["danger"]],
+            [0.32, "#f87171"],
+            [0.48, "#fecaca"],
+            [0.5, "rgba(241, 245, 249, 0.45)"],
+            [0.52, "#bfdbfe"],
+            [0.68, "#60a5fa"],
+            [1.0, T["info"]],
+        ]
         figcor = go.Figure(go.Heatmap(z=corr.values, x=corr.columns, y=corr.index,
-                                      colorscale="RdBu", zmid=0, zmin=-1, zmax=1,
-                                      text=[[f"{v:.2f}" for v in row] for row in corr.values],
-                                      texttemplate="%{text}", textfont={"size": 12}))
+                                      colorscale=_corr_cs, zmid=0, zmin=-1, zmax=1,
+                                      text=[[f"{v:.2f}" if _isnum(v) else Fmt.NA for v in row] for row in corr.values],
+                                      texttemplate="%{text}",
+                                      textfont=dict(size=12, family="IBM Plex Mono, monospace", color=T["text"]),
+                                      xgap=2, ygap=2))
         style_fig(figcor, height=90 + 46 * len(corr), legend="off")
+        figcor.update_xaxes(showspikes=False)
+        figcor.update_yaxes(autorange="reversed", showspikes=False)
         figure(figcor, "Correlation of daily returns",
                "How closely each pair of companies has moved together over the period shown. 1.00 is "
                "lockstep, 0 is unrelated, negative means they move against each other.",
@@ -7697,8 +8389,13 @@ elif view == "Investment Simulator":
         st.stop()
 
     px_all = hist_all["Close"].dropna()
+    px_all = px_all[px_all > 0]
+    if len(px_all) < 5:
+        empty_state("Not enough valid price history available for this symbol.")
+        st.stop()
     px_all.index = pd.to_datetime(px_all.index).tz_localize(None)
     first_day, last_day = px_all.index[0].date(), px_all.index[-1].date()
+    max_start_day = max(first_day, last_day - timedelta(days=1))
 
     i1, i2, i3, i4 = st.columns([1, 1, 1, 1])
     with i1:
@@ -7709,9 +8406,9 @@ elif view == "Investment Simulator":
     with i3:
         years_map = {"1y": 1, "3y": 3, "5y": 5, "10y": 10}
         proposed = (datetime.now() - timedelta(days=365 * years_map.get(horizon, 5))).date()
-        default_start = max(first_day, min(proposed, last_day - timedelta(days=5)))
+        default_start = max(first_day, min(proposed, max_start_day))
         start_day = st.date_input("Start date", value=default_start,
-                                  min_value=first_day, max_value=last_day - timedelta(days=1),
+                                  min_value=first_day, max_value=max_start_day,
                                   disabled=(horizon != "Custom"))
         if horizon != "Custom":
             start_day = default_start
@@ -7765,7 +8462,7 @@ elif view == "Investment Simulator":
             bp.index = pd.to_datetime(bp.index).tz_localize(None)
             bp = bp[bp.index >= window.index[0]]
             bp = bp.reindex(window.index).ffill().bfill()
-            if not bp.empty:
+            if not bp.dropna().empty and float(bp.iloc[0]) > 0:
                 bench_value, _, _ = simulate_position(bp, amount, monthly)
 
     kpi_grid([
@@ -7811,7 +8508,7 @@ elif view == "Investment Simulator":
            data=pd.DataFrame({"Position": value, "Invested": cost_path,
                               **({"Benchmark": bench_value} if bench_value is not None else {})}))
 
-    rolling = value.pct_change(252).dropna()
+    rolling = value.pct_change(252, fill_method=None).dropna()
     if not rolling.empty:
         figroll = go.Figure(go.Histogram(x=rolling * 100, nbinsx=45, marker_color=T["accent_soft"], opacity=.85))
         figroll.add_vline(x=0, line_dash="dash", line_color=T["danger"])
@@ -7880,7 +8577,8 @@ elif view == "Portfolio":
         st.stop()
     rows["Ticker"] = rows["Ticker"].astype(str).str.upper().str.strip()
     rows["Category"] = rows["Category"].fillna("Other")
-    rows["Purchased"] = pd.to_datetime(rows["Purchased"]).dt.date
+    _fallback_date = (datetime.now() - timedelta(days=365)).date()
+    rows["Purchased"] = pd.to_datetime(rows["Purchased"], errors="coerce").dt.date.fillna(_fallback_date)
 
     holdings_key = tuple(
         (str(t), float(sh), float(c or 0), str(d))
@@ -7900,10 +8598,15 @@ elif view == "Portfolio":
         empty_state("None of those symbols could be priced right now.")
         st.stop()
     total_value = float(rows["Value"].sum())
+    if total_value <= 0:
+        empty_state("Portfolio value is zero or unavailable.", "Check that share counts and ticker symbols are valid.")
+        st.stop()
     rows["Weight %"] = rows["Value"] / total_value * 100
     rows["Cost value"] = rows["Cost per share"].fillna(0) * rows["Shares"]
     rows["Gain %"] = np.where(rows["Cost value"] > 0,
                               (rows["Value"] / rows["Cost value"] - 1) * 100, np.nan)
+    _hhi_sum = float(((rows["Weight %"] / 100) ** 2).sum())
+    _eff_pos = (1.0 / _hhi_sum) if _hhi_sum > 0 else None
 
     kpi_grid([
         {"label": "Portfolio value", "value": Fmt.money(total_value, sym),
@@ -7917,8 +8620,7 @@ elif view == "Portfolio":
          "sub": Fmt.pct(float((rows["Value"].sum() / rows["Cost value"].sum() - 1) * 100), signed=True)
                 if rows["Cost value"].sum() > 0 else "Enter a cost basis to see this",
          "tone": "good" if rows["Value"].sum() >= rows["Cost value"].sum() else "bad"},
-        {"label": "Effective positions", "value": Fmt.ratio(
-            1 / ((rows["Weight %"] / 100) ** 2).sum(), 1, suffix=""),
+        {"label": "Effective positions", "value": Fmt.ratio(_eff_pos, 1, suffix=""),
          "sub": "Inverse Herfindahl: how many equal-sized positions this is really equivalent to",
          "tone": "flat",
          "help": "A portfolio of ten names where one is 60% behaves like a portfolio of about three."},
@@ -8024,7 +8726,7 @@ simply arrived at because a winner was left to run.
         per_ticker, value_series, flows_market, flows_cash = load_portfolio_history(
             holdings_key, target_currency)
 
-    if value_series is None or value_series.empty:
+    if value_series is None or value_series.empty or value_series[value_series > 0].empty:
         empty_state("Could not rebuild a price history for these holdings.",
                     "This usually means one of the symbols has no history at the purchase date entered.")
     else:
@@ -8047,7 +8749,9 @@ simply arrived at because a winner was left to run.
             if not bh.empty and "Close" in bh:
                 bp = bh["Close"].dropna()
                 bp.index = pd.to_datetime(bp.index).tz_localize(None)
-                bench_series = bp.reindex(value_series.index).ffill().bfill()
+                _bs = bp.reindex(value_series.index).ffill().bfill()
+                if not _bs.dropna().empty and _isnum(_bs.iloc[0]) and float(_bs.iloc[0]) > 0:
+                    bench_series = _bs
 
         bench_return = float(bench_series.iloc[-1] / bench_series.iloc[0] - 1) if bench_series is not None else None
         kpi_grid([
@@ -8127,25 +8831,46 @@ contributions. Money-weighted is the honest answer to "how did I do".
         mask = vals.notna() & (w > 0)
         return float((vals[mask] * w[mask]).sum() / w[mask].sum()) if mask.any() else None
 
+    _w_pe, _w_ev, _w_om, _w_rg, _w_nd = (
+        weighted("P/E"), weighted("EV/EBITDA"), weighted("Op Margin (%)"),
+        weighted("Revenue Growth (%)"), weighted("Net Debt/EBITDA"),
+    )
     kpi_grid([
-        {"label": "Weighted P/E", "value": Fmt.ratio(weighted("P/E")),
+        {"label": "Weighted P/E", "value": Fmt.ratio(_w_pe),
          "sub": "Portfolio-level earnings multiple", "tone": "flat"},
-        {"label": "Weighted EV/EBITDA", "value": Fmt.ratio(weighted("EV/EBITDA")),
+        {"label": "Weighted EV/EBITDA", "value": Fmt.ratio(_w_ev),
          "sub": "Capital-structure neutral", "tone": "flat"},
-        {"label": "Weighted operating margin", "value": Fmt.pct(weighted("Op Margin (%)")),
+        {"label": "Weighted operating margin", "value": Fmt.pct(_w_om),
          "sub": "Quality of the underlying businesses", "tone": "flat"},
-        {"label": "Weighted revenue growth", "value": Fmt.pct(weighted("Revenue Growth (%)"), signed=True),
+        {"label": "Weighted revenue growth", "value": Fmt.pct(_w_rg, signed=True),
          "sub": "How fast the portfolio's businesses are growing", "tone": "flat"},
-        {"label": "Weighted net debt / EBITDA", "value": Fmt.ratio(weighted("Net Debt/EBITDA")),
+        {"label": "Weighted net debt / EBITDA", "value": Fmt.ratio(_w_nd),
          "sub": "Leverage carried through the holdings", "tone": "flat"},
     ], min_width=200)
 
+    _pf_tilt = (
+        "a **growth-quality tilt** (paying a premium multiple for above-average margins and expansion)"
+        if _isnum(_w_pe) and _w_pe > 25 and (_w_om or 0) >= 18 else
+        "a **value-oriented profile** (modest earnings multiple relative to broad equity averages)"
+        if _isnum(_w_pe) and _w_pe <= 16 else
+        "a **core blend profile** balancing valuation discipline and business quality"
+    )
+    note(f"""
+Treated as a single combined company, this portfolio exhibits {_pf_tilt} — trading at **{Fmt.ratio(_w_pe)}** weighted P/E
+with **{Fmt.pct(_w_om)}** operating margins and **{Fmt.pct(_w_rg, signed=True)}** revenue growth.
+- **Look-through balance sheet.** Weighted Net Debt / EBITDA is **{Fmt.ratio(_w_nd)}** ({'conservative net-cash or low-debt cushion' if _isnum(_w_nd) and _w_nd < 1.5 else 'moderate leverage' if _isnum(_w_nd) and _w_nd < 3.0 else 'elevated aggregate leverage — sensitive to higher interest rates' if _isnum(_w_nd) else 'leverage metrics partially unreported'}).
+- **Hidden concentration.** Even across multiple tickers, similar multiples and margins often signal shared factor exposure; check correlations in **12. Compare Companies**.
+""", tone="pos" if (_w_om or 0) >= 15 and (_w_nd or 0) < 2.0 else "warn" if (_w_nd or 0) >= 3.0 else "neu",
+         title="Portfolio fundamental profile")
+
 
 # ==============================================================================
-# 9. EXPORT, PROVENANCE & FOOTER  (shared by every data module)
+# 9. SMART NAVIGATION, EXPORT, PROVENANCE & FOOTER  (shared by every data module)
 # ==============================================================================
 
-st.markdown("<div style='height:26px'></div>", unsafe_allow_html=True)
+render_smart_nav(view, co, extras)
+
+st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 x1, x2 = st.columns([1, 1])
 
 with x1:
